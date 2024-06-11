@@ -6,7 +6,7 @@ from machine import Timer
 import micropython
 
 
-def NullFunc(_):
+def _NullFunc(_):
     pass
 
 
@@ -26,65 +26,108 @@ HOLDK = const(HOLDTIME // SCANSPEED)
 
 
 class KeyProxy:
-    def __init__(self, Keys: list) -> None:
-        InitLen = len(Keys)
-        self.__FSMs = array("B", [RELEASED for _ in range(InitLen)])
-        self.__PressedTime = array("H", [0 for _ in range(InitLen)])
-        self.PressCALLBACKs: list = [NullFunc for _ in range(InitLen)]
-        self.ReleaseCALLBACKs: list = [NullFunc for _ in range(InitLen)]
-        self.HoldCALLBACKs: list = [NullFunc for _ in range(InitLen)]
-        self.PressArgs: list = [None for _ in range(InitLen)]
-        self.ReleaseArgs: list = [None for _ in range(InitLen)]
-        self.HoldArgs: list = [None for _ in range(InitLen)]
-        self.__Keys = list(Keys)
-        IntervalTimer = Timer()
-        IntervalTimer.init(
-            mode=Timer.PERIODIC, period=HOLDINTERVAL, callback=self.HoldInterval
+    """物理按键代理模块，自带消抖，自定义按下触发、释放触发、长按触发
+
+    按键为0时表示按下
+    """
+
+    def __init__(self, keys: list) -> None:
+        init_len = len(keys)
+        self.__fsms = array("B", [RELEASED] * init_len)
+        self.__pressed_time = array("H", [0] * init_len)
+        self.press_callbacks: list = [_NullFunc] * init_len
+        self.release_callbacks: list = [_NullFunc] * init_len
+        self.hold_callbacks: list = [_NullFunc] * init_len
+        self.press_args: list = [None] * init_len
+        self.release_args: list = [None] * init_len
+        self.hold_args: list = [None] * init_len
+        self.__keys = list(keys)
+        interval_timer = Timer()
+        interval_timer.init(
+            mode=Timer.PERIODIC, period=HOLDINTERVAL, callback=self.hold_interval
         )
 
-    def Scan(self):
+    def scan(self):
         """按键扫描"""
-        FSMs = self.__FSMs
-        PressedTime = self.__PressedTime
-        PressCALLBACKs = self.PressCALLBACKs
-        ReleaseCALLBACKs = self.ReleaseCALLBACKs
-        PressArgs = self.PressArgs
-        ReleaseArgs = self.ReleaseArgs
-        for i, Key in enumerate(self.__Keys):
-            if Key() == 0:
-                if FSMs[i] == RELEASED:
-                    FSMs[i] = DEBOUNCE
-                elif FSMs[i] == DEBOUNCE:
-                    FSMs[i] = PRESSED
-                    micropython.schedule(PressCALLBACKs[i], PressArgs[i])
-                elif FSMs[i] == PRESSED:
-                    PressedTime[i] += 1
-                    if HOLDK == PressedTime[i]:
-                        FSMs[i] = HOLDED
+        fsms = self.__fsms
+        pressed_time = self.__pressed_time
+        press_callbacks = self.press_callbacks
+        release_callbacks = self.release_callbacks
+        press_args = self.press_args
+        release_args = self.release_args
+        for i, key in enumerate(self.__keys):
+            if key() == 0:
+                if fsms[i] == RELEASED:
+                    fsms[i] = DEBOUNCE
+                elif fsms[i] == DEBOUNCE:
+                    fsms[i] = PRESSED
+                    micropython.schedule(press_callbacks[i], press_args[i])
+                elif fsms[i] == PRESSED:
+                    pressed_time[i] += 1
+                    if HOLDK == pressed_time[i]:
+                        fsms[i] = HOLDED
             else:
-                if FSMs[i] == HOLDED or FSMs[i] == PRESSED:
-                    micropython.schedule(ReleaseCALLBACKs[i], ReleaseArgs[i])
-                FSMs[i] = RELEASED
-                PressedTime[i] = 0
+                if fsms[i] == HOLDED or fsms[i] == PRESSED:
+                    micropython.schedule(release_callbacks[i], release_args[i])
+                fsms[i] = RELEASED
+                pressed_time[i] = 0
         sleep_ms(SCANSPEED)
 
-    def HoldInterval(self, _):
+    def hold_interval(self, _):
         for CALLBACK, State, Args in zip(
-            self.HoldCALLBACKs, self.__FSMs, self.HoldArgs
+            self.hold_callbacks, self.__fsms, self.hold_args
         ):
             if State == HOLDED:
                 micropython.schedule(CALLBACK, Args)
 
-    def AppendKey(
+    def append_key(
         self,
-        Key,
-        PressCALLBACK=NullFunc,
-        ReleaseCALLBACK=NullFunc,
-        HoldCALLBACK=NullFunc,
+        key,
+        press_callback=_NullFunc,
+        release_callback=_NullFunc,
+        hold_callback=_NullFunc,
     ):
-        self.__FSMs.append(RELEASED)
-        self.__PressedTime.append(0)
-        self.PressCALLBACKs.append(PressCALLBACK)
-        self.ReleaseCALLBACKs.append(ReleaseCALLBACK)
-        self.HoldCALLBACKs.append(HoldCALLBACK)
-        self.__Keys.append(Key)
+        self.__fsms.append(RELEASED)
+        self.__pressed_time.append(0)
+        self.press_callbacks.append(press_callback)
+        self.release_callbacks.append(release_callback)
+        self.hold_callbacks.append(hold_callback)
+        self.__keys.append(key)
+
+
+class KeyProxySimplified:
+    """物理按键代理模块简化版，自带消抖，只支持自定义按下触发
+
+    按键为0时表示按下"""
+
+    def __init__(self, keys: list) -> None:
+        init_len = len(keys)
+        self.__fsms = array("B", [RELEASED] * init_len)
+        self.press_callbacks: list = [_NullFunc] * init_len
+        self.press_args: list = [None] * init_len
+        self.__keys = list(keys)
+
+    def scan(self):
+        """按键扫描"""
+        fsms = self.__fsms
+        press_callbacks = self.press_callbacks
+        press_args = self.press_args
+        for i, key in enumerate(self.__keys):
+            if key() == 0:
+                if fsms[i] == RELEASED:
+                    fsms[i] = DEBOUNCE
+                elif fsms[i] == DEBOUNCE:
+                    fsms[i] = PRESSED
+                    micropython.schedule(press_callbacks[i], press_args[i])
+            else:
+                fsms[i] = RELEASED
+        sleep_ms(SCANSPEED)
+
+    def append_key(
+        self,
+        key,
+        press_callback=_NullFunc,
+    ):
+        self.__fsms.append(RELEASED)
+        self.press_callbacks.append(press_callback)
+        self.__keys.append(key)
