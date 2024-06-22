@@ -6,10 +6,7 @@ FOCUSED_COLOR = RED
 
 
 class XWidget:
-    """控件的基类
-    pos: 绝对坐标，如果使用add_widget添加子控件，则pos被视为相对坐标并以此计算新的绝对坐标
-        在添加子控件前请注意
-    """
+    """控件的基类"""
 
     def __init__(self, pos: tuple[int, int], wh: tuple[int, int], color=BLACK) -> None:
         """初始化控件
@@ -73,7 +70,6 @@ class XLayout(XCtrl):
     ) -> None:
         """
         Args:
-            display: 用于剔除超出布局的部分
             loop_focus: 是否循环切换焦点.
             frame: 是否绘制边框.
             color: 边框颜色.
@@ -88,9 +84,9 @@ class XLayout(XCtrl):
         self._top = top
         self._GUI = GUI
         if top:
-            self.gen_draw_area()
+            self.create_draw_area()
 
-    def gen_draw_area(self):
+    def create_draw_area(self):
         """计算边框内绘制区域"""
         if self._GUI is None:
             return
@@ -182,7 +178,7 @@ class XLayout(XCtrl):
                     self._focus_list[self._focus_index].focused = True
             if isinstance(widget, XLayout):
                 widget._GUI = self._GUI
-                widget.gen_draw_area()
+                widget.create_draw_area()
 
     def _key_response(self, KEY_ID: int):
         """处理按键响应"""
@@ -195,14 +191,12 @@ class XLayout(XCtrl):
                 # 焦点切换
                 old_index = self._focus_index
                 len_ = len(self._focus_list)
+                # 判断循环焦点模式
+                modulo = len_ if self._loop_focus else 999999
                 if KEY_ID == KEY_UP:
-                    self._focus_index -= 1  # 切换到上一个焦点控件
-                    if self._loop_focus and self._focus_index == -1:
-                        self._focus_index = len_ - 1
+                    self._focus_index = (self._focus_index - 1 + modulo) % modulo
                 else:
-                    self._focus_index += 1  # 切换到下一个焦点控件
-                    if self._loop_focus and self._focus_index == len_:
-                        self._focus_index = 0
+                    self._focus_index = (self._focus_index + 1) % modulo
 
                 if 0 <= self._focus_index < len_:
                     self._focus_list[old_index].focused = False
