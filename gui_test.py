@@ -31,7 +31,7 @@ displayer = st7789.ST7789_API(display)
 # 创建XT_GUI实例
 GUI = XT_GUI(
     displayer,
-    ufont.BMFont("./resource/fonts/16x16Sim.bmf", True),
+    ufont.BMFont("./resource/fonts/16x16Sim.bmf", load_in_mem=True),
     cursor_img_file="./resource/Img/Cursor21x32.pbm",
     loop_focus=True,
 )

@@ -1,4 +1,4 @@
-from gui.widgets.base import *
+from .base import *
 
 
 class XButton(XCtrl):

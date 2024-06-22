@@ -2,7 +2,7 @@ from math import ceil
 import utime
 import framebuf
 import gc
-from gui.widgets.base import *
+from .widgets.base import *
 
 DEBUG = True
 

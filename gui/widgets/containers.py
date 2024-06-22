@@ -1,5 +1,5 @@
-from gui.widgets.base import *
-from gui.widgets.base import XWidget
+from .base import *
+from .base import XWidget
 
 
 class XListView(XLayout):

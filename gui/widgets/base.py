@@ -1,4 +1,4 @@
-from gui.utils import *
+from ..utils import *
 from framebuf import FrameBuffer
 from framebuf import RGB565
 
