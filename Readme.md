@@ -30,30 +30,21 @@ ST7789 分辨率位 240x240，色彩模式 RGB565。帧缓存占用空间为 115
 
 1. 准备运行`micropython`的开发板和一个`ST7789`的`LCD`屏幕，并使用 4 线串行接口的方式完成连接
 2. 克隆或下载本仓库到 PC 机本地
-3. 打开`gui_test.py`并修改相关引脚配置
+3. 打开`setup_hardware.py`并修改相关引脚配置
 
    ```python
-   # LED灯，进行PWM输出
-   LED = Pin(4, Pin.OUT)
-   # 请根据自身硬件情况更改引脚和上拉电阻设置
-   # 退出按键
-   BTN_ESCAPE = Pin(5, Pin.IN)
-   # 确认/进入按键
-   BTN_ENTER = Pin(6, Pin.IN, Pin.PULL_UP)
-   # 下键
-   BTN_DOWN = Pin(7, Pin.IN, Pin.PULL_UP)
-   # 上键
-   BTN_UP = Pin(8, Pin.IN, Pin.PULL_UP)
-
    # 请根据自身硬件情况更改引脚和波特率
    # 初始化显示屏
    spi0 = SPI(0, baudrate=30_000_000, phase=1, polarity=1, sck=Pin(2), mosi=Pin(3))
-   display = st7789.ST7789(spi0, 240, 240, reset=Pin(0, Pin.OUT), dc=Pin(1, Pin.OUT))
-   displayer = st7789.ST7789_API(display)
+   display_driver = st7789.ST7789(
+      spi0, 240, 240, reset=Pin(0, Pin.OUT), dc=Pin(1, Pin.OUT)
+   )
+   display = st7789.ST7789_API(display_driver)
    ```
 
 4. 下载官方的 [mpremote](https://docs.micropython.org/en/latest/reference/mpremote.html#mpremote) 工具`pip3 install mpremote`
 5. 挂载代码目录到主机(请确保运行命令时路径处于代码目录，串口不被其他程序占用)`mpremote mount .`
-6. 运行简单演示`>>> import gui_test.py`
+6. 运行你想运行的 demo`>>> import demos.widgets_demos.foo_bar`
+7. 部分 demo 中有些代码需要修改引脚等
 
 ## 特性
