@@ -20,22 +20,28 @@ class XWidget:
         self._wh = wh
         self._color = color
         self._parent: XLayout | None = None
+        self._layout: FrameBuffer | None = None
 
     def get_absolute_pos(self):
         if self._parent is None:
             return self._pos
         x, y = self._pos
         p_x, p_y = self._parent.get_absolute_pos()
-        return (x + p_x, y + p_y)
+        layout_x, layout_y = self._parent._layout_pos
+        return (x + p_x + layout_x, y + p_y + layout_y)
+
+    def pre_draw(self, parent: "XLayout") -> None:
+        """预绘制，在更改布局后计算一些固定数据用于绘制"""
+        self._parent = parent
+        self._layout = parent._layout_frame
 
     def draw(self) -> None:
         """绘制"""
-        if self._parent is None:
+        if self._layout is None:
             return
         x, y = self._pos
         w, h = self._wh
-        layout = self._parent._layout_frame
-        layout.rect(x, y, w, h, self._color, True)
+        self._layout.rect(x, y, w, h, self._color, True)
 
 
 class XCtrl(XWidget):
@@ -97,6 +103,11 @@ class XLayout(XCtrl):
             h -= 4
             x += 2
             y += 2
+            self._layout_pos = (2, 2)
+        else:
+            self._layout_pos = (0, 0)
+
+        self._layout_wh = (w, h)
         display = self._GUI.display
         display_w = display.width
         layout_buffer = memoryview(display.buffer)
@@ -113,17 +124,17 @@ class XLayout(XCtrl):
 
             if self._top and GUI and isinstance(GUI.display, FrameBuffer):
                 # 边框和焦点轮廓
-                frame_color = FOCUSED_COLOR if self.focused else self._color
-                GUI.display.rect(x, y, w, h, frame_color)
-                GUI.display.rect(x + 1, y + 1, w - 2, h - 2, frame_color)
+                border_color = FOCUSED_COLOR if self.focused else self._color
+                GUI.display.rect(x, y, w, h, border_color)
+                GUI.display.rect(x + 1, y + 1, w - 2, h - 2, border_color)
             else:
                 # 边框和焦点轮廓
                 if self._parent is None:
                     return
                 layout = self._parent._layout_frame
-                frame_color = FOCUSED_COLOR if self.focused else self._color
-                layout.rect(x, y, w, h, frame_color)
-                layout.rect(x + 1, y + 1, w - 2, h - 2, frame_color)
+                border_color = FOCUSED_COLOR if self.focused else self._color
+                layout.rect(x, y, w, h, border_color)
+                layout.rect(x + 1, y + 1, w - 2, h - 2, border_color)
 
     def draw_deliver(self) -> None:
         """传递绘制"""
@@ -158,12 +169,12 @@ class XLayout(XCtrl):
         self._GUI.draw_text(text, pos, color, layout_frame, overlap, t_font)
 
     def add_widget(self, widget: XWidget) -> None:
-        """添加子控件并计算绝对位置和布局"""
-        self._layout(widget)
+        """添加子控件并调整布局"""
+        self._adjust_layout(widget)
         self._add_widget(widget)
 
-    def _layout(self, widget: XWidget) -> None:
-        """计算布局"""
+    def _adjust_layout(self, widget: XWidget) -> None:
+        """调整布局"""
         pass
 
     def _add_widget(self, widget: XWidget) -> None:
@@ -179,6 +190,7 @@ class XLayout(XCtrl):
             if isinstance(widget, XLayout):
                 widget._GUI = self._GUI
                 widget.create_draw_area()
+        widget.pre_draw(self)
 
     def _key_response(self, KEY_ID: int):
         """处理按键响应"""

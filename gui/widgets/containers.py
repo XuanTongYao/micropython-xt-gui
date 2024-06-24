@@ -14,7 +14,7 @@ class XListView(XLayout):
         # 最后一个子项的y轴偏移
         self.widget_offset = 0
 
-    def _layout(self, widget: XWidget) -> None:
+    def _adjust_layout(self, widget: XWidget) -> None:
         w = self._wh[0]
         oh = widget._wh[1]
         widget._pos = (0, self.widget_offset)
