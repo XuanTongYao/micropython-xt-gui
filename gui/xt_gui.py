@@ -157,9 +157,12 @@ class XT_GUI:
     def key_response(self, KEY_ID: int):
         """处理按键响应的函数"""
         if self.enter_widget_stack:
-            ret_val = self.enter_widget_stack[-1]._key_input(KEY_ID)
+            func = self.enter_widget_stack[-1]._key_input
+            if func is not None:
+                ret_val = func(KEY_ID)
         else:
-            ret_val = self._layout._key_input(KEY_ID)
+            if self._layout._key_input is not None:
+                ret_val = self._layout._key_input(KEY_ID)
         if ret_val == ESC and len(self.enter_widget_stack):
             self.esc_widget()
         elif isinstance(ret_val, XCtrl):

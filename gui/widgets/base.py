@@ -47,7 +47,7 @@ class XWidget:
 class XCtrl(XWidget):
     """允许响应按键输入的控件基类"""
 
-    def __init__(self, pos, wh, color=WHITE, key_input=NullFunc) -> None:
+    def __init__(self, pos, wh, color=WHITE, key_input=None) -> None:
         """
 
         Args:
@@ -197,7 +197,10 @@ class XLayout(XCtrl):
         if self.enter:
             if KEY_ID == KEY_MOUSE0 and self._focus_list:
                 focus = self._focus_list[self._focus_index]
-                if focus._key_input(KEY_MOUSE0) == ENTER:
+                func = focus._key_input
+                if func is None:
+                    return
+                if func(KEY_MOUSE0) == ENTER:
                     return focus
             elif KEY_ID == KEY_UP or KEY_ID == KEY_DOWN:
                 # 焦点切换

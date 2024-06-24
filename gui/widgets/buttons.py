@@ -2,7 +2,7 @@ from .base import *
 
 
 class XButton(XCtrl):
-    def __init__(self, pos, wh, key_press=NullFunc, text="", color=WHITE) -> None:
+    def __init__(self, pos, wh, key_press=None, text="", color=WHITE) -> None:
         """按钮控件初始化
 
         Args:
@@ -45,6 +45,8 @@ class XButton(XCtrl):
         layout.rect(x + 1, y + 1, w - 2, h - 2, border_color)
 
     def _press(self) -> None:
+        if self.key_press is None:
+            return
         self.key_press()
 
 

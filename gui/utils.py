@@ -1,7 +1,3 @@
-def NullFunc():
-    pass
-
-
 # RGB565 颜色定义(大端序BE)
 BLACK = const(0x0000)
 BLUE = const(0x1F00)
