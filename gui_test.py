@@ -6,7 +6,7 @@ from gui.xt_gui import XT_GUI
 from gui.widgets.buttons import XButton, XCheckbox, XRadio
 from gui.widgets.inputs import XSlider
 from gui.widgets.containers import XListView
-from gui.key_proxy import KeyProxySimplified
+from gui.key_handler import KeyProxySimplified
 
 # LED灯，进行PWM输出
 LED = Pin(4, Pin.OUT)
@@ -38,26 +38,26 @@ GUI = XT_GUI(
 
 
 # 声明回调函数，用于按钮等的触发
-def printHello(_):
+def printHello():
     print("Hello")
 
 
-def slider_plus_10(_):
+def slider_plus_10():
     slider.set_value(slider.value + 10)
 
 
-def slider_mius_10(_):
+def slider_mius_10():
     slider.set_value(slider.value - 10)
 
 
 # 设置了按下触发的回调，焦点选中并按下确认/进入按键会打印"Hello"
-hello_button = XButton((0, 0), (32 + 6, 16 + 6), context="你好", key_input=printHello)
+hello_button = XButton((0, 0), (32 + 6, 16 + 6), text="你好", key_press=printHello)
 # 没有设置回调，按下确认按键什么都不会发生
-world_b = XButton((32 + 7, 0), (32 + 6, 16 + 6), context="世界")
+world_b = XButton((32 + 7, 0), (32 + 6, 16 + 6), text="世界")
 # 多选框演示
-checkbox = XCheckbox((32 + 7 + 32 + 7, 0), 32)
+checkbox = XCheckbox((32 + 7 + 32 + 7, 0), (32, 32), 32)
 # 单选框演示，勾选后PWM输出将启用
-radio = XRadio((32 + 7 + 32 + 7 + 33, 0), 32)
+radio = XRadio((32 + 7 + 32 + 7 + 33, 0), (32, 32), 32)
 # 滑动条，焦点选中并按下确认按键会进入到该控件，按上下键调节PWM输出占空比
 slider = XSlider(
     (0, 40), (50, 24), 0, 100, color=GREEN, show_text=True, orientation=XSlider.VERTICAL
@@ -71,10 +71,10 @@ for w in [hello_button, world_b, checkbox, radio, slider, listv]:
 
 # 向列表视图加入两个按钮，快速调节滑动条的值
 listv.add_widget(
-    XButton((0, 0), (32 + 6, 16 + 6), context="+10", key_input=slider_plus_10)
+    XButton((0, 0), (32 + 6, 16 + 6), text="+10", key_press=slider_plus_10)
 )
 listv.add_widget(
-    XButton((0, 16 + 6), (32 + 6, 16 + 6), context="-10", key_input=slider_mius_10)
+    XButton((0, 16 + 6), (32 + 6, 16 + 6), text="-10", key_press=slider_mius_10)
 )
 
 # 按键消抖相关
