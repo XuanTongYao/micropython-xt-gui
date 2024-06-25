@@ -3,8 +3,10 @@ import utime
 import framebuf
 import gc
 from .widgets.base import *
+import asyncio
 
-DEBUG = True
+
+DEBUG = False
 
 
 def timed_function(f, *args, **kwargs):
@@ -153,6 +155,16 @@ class XT_GUI:
         """绘制并显示整个GUI"""
         self._layout.draw_deliver()
         self.refrash_frame()
+
+    async def __show_gui_loop(self):
+        while True:
+            self._layout.draw_deliver()
+            self.refrash_frame()
+            await asyncio.sleep(0)
+
+    def run(self):
+        """进入异步主循环"""
+        asyncio.run(self.__show_gui_loop())
 
     def key_response(self, KEY_ID: int):
         """处理按键响应的函数"""
