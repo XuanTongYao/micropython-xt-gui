@@ -44,7 +44,7 @@ class XButton(XCtrl):
         layout.rect(x, y, w, h, border_color)
         layout.rect(x + 1, y + 1, w - 2, h - 2, border_color)
 
-    def _press(self) -> None:
+    def _press(self, _) -> None:
         if self.key_press is None:
             return
         self.key_press()
