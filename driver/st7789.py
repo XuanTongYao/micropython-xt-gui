@@ -127,6 +127,7 @@ class ST7789:
             raise ValueError(
                 "Unsupported display. Only 240x240 and 135x240 are supported."
             )
+        self.color_mode = framebuf.RGB565
 
         self._display_width = self.width = width
         self._display_height = self.height = height

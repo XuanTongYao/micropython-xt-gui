@@ -1,33 +1,38 @@
 from .base import *
 
 
-class XButton(XCtrl):
-    def __init__(self, pos, wh, key_press=None, text="", color=WHITE) -> None:
+class XButton(XLayout):
+    def __init__(
+        self, pos, wh=None, key_press=None, text="", color=WHITE, text_size=16
+    ) -> None:
         """按钮控件初始化
 
         Args:
+            wh: 宽高，如果为None则根据text与text_size自动调整
             key_press: 按下回调函数.
         """
-        super().__init__(pos, wh, color, self._press)
-        self.text = text
+        if wh is None:
+            wh = (
+                text_size * len(text) + 6,
+                text_size + 6,
+            )
+        super().__init__(pos, wh, frame=True, color=color)
+        self._key_input = self._press
+        self.xtext = XText((0, 0), text, self._color)
         self.key_press = key_press
-        self._text_frame = None
+        self.add_widget(self.xtext)
 
-    def pre_draw(self, parent: "XLayout") -> None:
-        if parent._GUI is None:
+    def create_draw_area(self):
+        """计算边框内绘制区域"""
+        if self._GUI is None:
             return
-        self._parent = parent
-        self._layout = parent._layout_frame
-        absolute_x, absolute_y = self.get_absolute_pos()
+        x, y = self.get_absolute_pos()
         w, h = self._wh
+        self._layout_pos = (3, 3)
 
-        display = parent._GUI.display
-        display_w = display.width
-        text_buffer = memoryview(display.buffer)
-        byte_offset = (display_w * 2 * (absolute_y + 3)) + ((absolute_x + 3) * 2)
-        self._text_frame = FrameBuffer(
-            text_buffer[byte_offset:], w - 6, h - 6, RGB565, display_w
-        )
+        display = self._GUI.display
+        if isinstance(display, DisplayAPI):
+            self._draw_area = display.framebuf_slice(x + 3, y + 3, w - 6, h - 6)
 
     def draw(self) -> None:
         if self._parent is None or self._layout is None:
@@ -36,9 +41,6 @@ class XButton(XCtrl):
         x, y = self._pos
         w, h = self._wh
 
-        self._parent.draw_text_proxy(
-            self.text, color=self._color, layout_frame=self._text_frame
-        )
         border_color = FOCUSED_COLOR if self.focused else WHITE
         # 边框与焦点轮廓
         layout.rect(x, y, w, h, border_color)
@@ -50,7 +52,7 @@ class XButton(XCtrl):
         self.key_press()
 
 
-class XRadio(XCtrl):
+class XRadio(XLayout):
     """单选框"""
 
     def __init__(self, pos, wh, size, text="", color=RED) -> None:
@@ -62,35 +64,35 @@ class XRadio(XCtrl):
         if wh[0] - size - 1 <= 0 or wh[1] < size:
             raise ValueError("size too large")
 
-        super().__init__(pos, wh, color, self._check)
-        self.text = text
+        super().__init__(pos, wh, color=color)
+        self._key_input = self._check
+        self.xtext = XText((0, 0), text, self._color)
         self.checked = False
         self._size = size
         self._text_frame = None
         self._group = None
+        self.add_widget(self.xtext)
 
     def set_group(self, group: "list[XRadio]") -> None:
         self._group = group
         group.append(self)
 
-    def pre_draw(self, parent: "XLayout") -> None:
-        if parent._GUI is None:
+    def create_draw_area(self):
+        """计算边框内绘制区域"""
+        if self._GUI is None:
             return
-        self._parent = parent
-        self._layout = parent._layout_frame
-        absolute_x, absolute_y = self.get_absolute_pos()
+        x, y = self.get_absolute_pos()
         w, h = self._wh
+        self._layout_pos = (self._size + 1, 0)
 
-        display = parent._GUI.display
-        display_w = display.width
-        text_buffer = memoryview(display.buffer)
-        byte_offset = (display_w * 2 * absolute_y) + ((absolute_x + self._size + 1) * 2)
-        self._text_frame = FrameBuffer(
-            text_buffer[byte_offset:], w - self._size - 1, h, RGB565, display_w
-        )
+        display = self._GUI.display
+        if isinstance(display, DisplayAPI):
+            self._draw_area = display.framebuf_slice(
+                x + self._size + 1, y, w - self._size - 1, h
+            )
 
     def draw(self) -> None:
-        if self._parent is None or self._layout is None:
+        if self._layout is None:
             return
         layout = self._layout
         size = self._size
@@ -98,9 +100,7 @@ class XRadio(XCtrl):
         r = size >> 1
         x += r - 1
         y += r - 1
-        self._parent.draw_text_proxy(
-            self.text, color=self._color, layout_frame=self._text_frame
-        )
+
         # 绘制内边框
         layout.ellipse(x, y, r - 2, r - 2, WHITE, False)
         # 绘制焦点轮廓
@@ -143,9 +143,6 @@ class XCheckbox(XRadio):
         x, y = self._pos
         size = self._size
 
-        self._parent.draw_text_proxy(
-            self.text, color=self._color, layout_frame=self._text_frame
-        )
         # 绘制焦点轮廓
         if self.focused:
             layout.rect(x, y, size, size, FOCUSED_COLOR)

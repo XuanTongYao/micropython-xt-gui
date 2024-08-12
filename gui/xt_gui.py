@@ -91,23 +91,21 @@ class XT_GUI:
 
     def draw_text(
         self,
-        text: str,
-        pos,
-        color,
-        layout_frame: FrameBuffer | None = None,
+        xtext: XText,
         overlap=True,
-        t_font=None,
+        alternative_font=None,
     ):
-        x, y = pos
-        font = self.font if t_font is None else t_font
-        display = self.display if layout_frame is None else layout_frame
+        x, y = xtext._pos
+        color = xtext._color
+        font = self.font if alternative_font is None else alternative_font
+        display = self.display if xtext._layout is None else xtext._layout
         font_size = font.font_size
         half = font_size >> 1
         palette = self.pa_cache
         palette.pixel(1, 0, color)
         word_frame = self._word_frame
         word_cache = self._word_cache
-        for char in text:
+        for char in xtext._context:
             font.fast_get_bitmap(char, word_cache)
             if overlap:
                 display.blit(word_frame, x, y, 0, palette)
@@ -186,15 +184,11 @@ class XT_GUI:
     def esc_widget(self):
         self.enter_widget_stack.pop()
 
-    def __init__(self, display, font, cursor_img_file: str, loop_focus=True) -> None:
+    def __init__(
+        self, display: DisplayAPI, font, cursor_img_file: str, loop_focus=True
+    ) -> None:
         """初始化
         Args:
-            Display: 继承自FrameBuffer的显示器类,详细请看文档
-                需要实现的属性:
-                Width               像素宽度
-                Height              像素高度
-                buffer:bytearray    帧缓冲字节数据
-                UpdateFrame         将帧缓冲更新到显存的函数
             Font: 等宽字体类
                 需要实现的属性：
                 font_size           字体大小
@@ -203,17 +197,12 @@ class XT_GUI:
             loop_focus: 向前向后切换焦点是否循环
         """
         self.font = font
-        if isinstance(display, framebuf.FrameBuffer):
-            self.display = display
-        else:
-            raise TypeError("显示对象类型错误")
-        self.width = display.width  # type: ignore
-        self.height = display.height  # type: ignore
+        self.display = display
+        self.width = display.width
+        self.height = display.height
 
         # 基本容器布局
-        self._layout = XLayout(
-            (0, 0), (self.width, self.height), loop_focus, top=True, GUI=self
-        )
+        self._layout = XLayout((0, 0), (self.width, self.height), loop_focus, GUI=self)
         self._layout.enter = True
         # 已进入的控件栈，按键事件会传递给顶层控件处理
         self.enter_widget_stack: list[XCtrl] = list()

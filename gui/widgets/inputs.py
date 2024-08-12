@@ -34,7 +34,7 @@ class XSlider(XCtrl):
         # 拨杆全高度/宽度，上下/左右伸出1/4
         if self._parent is None:
             return
-        layout = self._parent._layout_frame
+        layout = self._parent._draw_area
 
         x, y = self._pos
         w, h = self._wh
