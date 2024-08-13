@@ -16,26 +16,17 @@ class XButton(XLayout):
                 text_size * len(text) + 6,
                 text_size + 6,
             )
-        super().__init__(pos, wh, frame=True, color=color)
-        self._key_input = self._press
+        super().__init__(pos, wh, color, self._press)
         self.xtext = XText((0, 0), text, self._color)
         self.key_press = key_press
         self.add_widget(self.xtext)
 
-    def create_draw_area(self):
-        """计算边框内绘制区域"""
-        if self._GUI is None:
-            return
-        x, y = self.get_absolute_pos()
+    def _calc_draw_area(self) -> tuple[tuple[int, int], tuple[int, int]]:
         w, h = self._wh
-        self._layout_pos = (3, 3)
-
-        display = self._GUI.display
-        if isinstance(display, DisplayAPI):
-            self._draw_area = display.framebuf_slice(x + 3, y + 3, w - 6, h - 6)
+        return (3, 3), (w - 6, h - 6)
 
     def draw(self) -> None:
-        if self._parent is None or self._layout is None:
+        if self._layout is None:
             return
         layout = self._layout
         x, y = self._pos
@@ -77,19 +68,9 @@ class XRadio(XLayout):
         self._group = group
         group.append(self)
 
-    def create_draw_area(self):
-        """计算边框内绘制区域"""
-        if self._GUI is None:
-            return
-        x, y = self.get_absolute_pos()
+    def _calc_draw_area(self) -> tuple[tuple[int, int], tuple[int, int]]:
         w, h = self._wh
-        self._layout_pos = (self._size + 1, 0)
-
-        display = self._GUI.display
-        if isinstance(display, DisplayAPI):
-            self._draw_area = display.framebuf_slice(
-                x + self._size + 1, y, w - self._size - 1, h
-            )
+        return (self._size + 1, 0), (w - self._size - 1, h)
 
     def draw(self) -> None:
         if self._layout is None:

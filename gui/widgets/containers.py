@@ -2,7 +2,7 @@ from .base import *
 from .base import XWidget
 
 
-class XListView(XLayout):
+class XListView(XFrameLayout):
     """列表视图"""
 
     def __init__(self, pos, wh, color=WHITE) -> None:

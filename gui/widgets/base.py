@@ -1,12 +1,16 @@
 from ..utils import *
 from framebuf import FrameBuffer
-from framebuf import RGB565
+
 
 FOCUSED_COLOR = RED
 
 
 class XWidget:
-    """控件的基类"""
+    """控件的基类
+
+    变换/父控件更新 -> 触发更新(重新计算一些信息)
+
+    """
 
     def __init__(self, pos: tuple[int, int], wh: tuple[int, int], color=BLACK) -> None:
         """初始化控件
@@ -23,6 +27,7 @@ class XWidget:
         self._layout: FrameBuffer | None = None
 
     def get_absolute_pos(self) -> tuple[int, int]:
+        """获取绝对位置(不可重写)"""
         if self._parent is None:
             return self._pos
         x, y = self._pos
@@ -37,6 +42,10 @@ class XWidget:
         x, y = self._pos
         w, h = self._wh
         self._layout.rect(x, y, w, h, self._color, True)
+
+    def _update(self) -> None:
+        if self._parent is not None:
+            self._layout = self._parent._draw_area
 
 
 class XCtrl(XWidget):
@@ -57,6 +66,104 @@ class XCtrl(XWidget):
 
 
 class XLayout(XCtrl):
+    """拥有基础布局的容器基类，无焦点控制。
+
+    更新 -> 重新创建容器绘制区域
+
+    添加子控件 -> 添加控件到列表 -> 对所有子控件进行调整布局
+
+    """
+
+    def __init__(self, pos, wh, color=WHITE, key_input=None) -> None:
+        super().__init__(pos, wh, color, key_input)
+        # 焦点控件
+        self._childen: list[XWidget] = []
+        self._draw_area = None
+        self._layout_wh = (0, 0)
+        self._layout_pos = (0, 0)
+
+    def _update(self) -> None:
+        super()._update()
+        self._create_draw_area()
+        for child in self._childen:
+            child._update()
+
+    def _calc_draw_area(self) -> tuple[tuple[int, int], tuple[int, int]]:
+        """计算绘制区域
+
+        Returns:
+            (x相对偏移,y相对偏移), (宽,高)
+        """
+        return (0, 0), self._wh
+
+    def _create_draw_area(self, ignore=False):
+        """创建容器绘制区域(不可重写)"""
+        if GuiSingle.GUI_SINGLE is None:
+            return
+        if self._parent is None and not ignore:
+            return
+
+        # 重写_calc_draw_area()函数即可
+        (x_offset, y_offset), (w, h) = self._calc_draw_area()
+
+        # 限位
+        if not ignore:
+            x_max, y_max = self._parent._layout_wh  # type: ignore
+            if x_offset < 0 or y_offset < 0 or x_offset >= x_max or y_offset >= y_max:
+                raise ValueError("x_offset or y_offset out of range ")
+            w = min(w, x_max - x_offset)
+            h = min(h, y_max - y_offset)
+
+        # 容器相对坐标
+        self._layout_pos = (x_offset, y_offset)
+        # 容器宽高
+        self._layout_wh = (w, h)
+        display = GuiSingle.GUI_SINGLE.display
+        if isinstance(display, DisplayAPI):
+            x, y = self.get_absolute_pos()
+            self._draw_area = display.framebuf_slice(x + x_offset, y + y_offset, w, h)
+        else:
+            raise TypeError("display must be DisplayAPI")
+
+    def draw(self) -> None:
+        pass
+
+    def draw_deliver(self) -> None:
+        """传递绘制(不可重写)"""
+        self.draw()
+        x_max, y_max = self._layout_wh
+        for child in self._childen:
+            # 超出容器不绘制
+            x, y = child._pos
+            if x < 0 or y < 0 or x >= x_max or y >= y_max:
+                continue
+
+            if isinstance(child, XLayout):
+                child.draw_deliver()
+            else:
+                child.draw()
+
+    def add_widget(self, widget: XWidget) -> None:
+        """添加子控件并调整布局(不可重写)"""
+        self._add_widget(widget)
+        self._adjust_layout()
+        # 手动触发更新
+        if self._layout is None:
+            return
+        for child in self._childen:
+            child._update()
+
+    def _adjust_layout(self) -> None:
+        """调整布局"""
+        pass
+
+    def _add_widget(self, widget: XWidget) -> None:
+        """添加控件"""
+        self._childen.append(widget)
+        widget._parent = self
+
+
+class XFrameLayout(XLayout):
     """拥有基础布局的容器基类"""
 
     def __init__(
@@ -66,123 +173,57 @@ class XLayout(XCtrl):
         loop_focus=True,
         frame=False,
         color=WHITE,
-        GUI=None,
+        top=False,
     ) -> None:
         """
         Args:
             loop_focus: 是否循环切换焦点.
             frame: 是否绘制边框.
             color: 边框颜色.
+            top: 设置为顶层
         """
         super().__init__(pos, wh, color, self._key_response)
         # 焦点控件
-        self._childen: list[XWidget] = []
         self._focus_list: list[XCtrl] = []
         self._focus_index = -1
         self._loop_focus = loop_focus
         self._frame = frame
-        self._GUI = GUI
-        # 如果构造时指定了GUI,则认为该布局是顶层布局
-        if GUI:
-            self._top = True
-            self._layout = GUI.display.buffer
-            self.create_draw_area()
-        else:
-            self._top = False
+        self._top = top
 
-    def create_draw_area(self):
-        """计算边框内绘制区域"""
-        if self._GUI is None:
-            return
-        x, y = self.get_absolute_pos()
+        if top and GuiSingle.GUI_SINGLE:
+            # 顶层布局特殊化
+            self._layout = GuiSingle.GUI_SINGLE.display
+            self._create_draw_area(True)
+
+    def _calc_draw_area(self) -> tuple[tuple[int, int], tuple[int, int]]:
         w, h = self._wh
         if self._frame:
-            w -= 4
-            h -= 4
-            x += 2
-            y += 2
-            self._layout_pos = (2, 2)
+            return (2, 2), (w - 4, h - 4)
         else:
-            self._layout_pos = (0, 0)
-
-        self._layout_wh = (w, h)
-        display = self._GUI.display
-        if isinstance(display, DisplayAPI):
-            self._draw_area = display.framebuf_slice(x, y, w, h)
-
-    def update_layout(self):
-        """更新子控件布局缓存"""
-        for child in self._childen:
-            child._layout = self._draw_area
-            if isinstance(child, XLayout):
-                child._GUI = self._GUI
-                child.create_draw_area()
-                child.update_layout()
+            return (0, 0), (w, h)
 
     def draw(self) -> None:
+        if self._layout is None:
+            return
         if self._frame:
             x, y = self._pos
             w, h = self._wh
-            GUI = self._GUI
-
-            if self._top and GUI and isinstance(GUI.display, FrameBuffer):
-                # 边框和焦点轮廓
-                border_color = FOCUSED_COLOR if self.focused else self._color
-                GUI.display.rect(x, y, w, h, border_color)
-                GUI.display.rect(x + 1, y + 1, w - 2, h - 2, border_color)
-            else:
-                # 边框和焦点轮廓
-                if self._layout is None:
-                    return
-                layout = self._layout
-                border_color = FOCUSED_COLOR if self.focused else self._color
-                layout.rect(x, y, w, h, border_color)
-                layout.rect(x + 1, y + 1, w - 2, h - 2, border_color)
-
-    def draw_deliver(self) -> None:
-        """传递绘制"""
-        self.draw()
-        x_max, y_max = self._wh[0] - 1, self._wh[1] - 1
-        for child in self._childen:
-            ox, oy = child._pos
-            if ox < 0 or ox >= x_max or oy < 0 or oy >= y_max:
-                continue
-            if isinstance(child, XLayout):
-                child.draw_deliver()
-            else:
-                child.draw()
-
-    def draw_text_proxy(self, xtext: "XText"):
-        if self._GUI is None:
-            return
-        self._GUI.draw_text(xtext)
-
-    def add_widget(self, widget: XWidget) -> None:
-        """添加子控件并调整布局"""
-        self._adjust_layout(widget)
-        self._add_widget(widget)
-
-    def _adjust_layout(self, widget: XWidget) -> None:
-        """针对子控件调整布局"""
-        pass
+            # 边框和焦点轮廓
+            layout = self._layout
+            border_color = FOCUSED_COLOR if self.focused else self._color
+            layout.rect(x, y, w, h, border_color)
+            layout.rect(x + 1, y + 1, w - 2, h - 2, border_color)
 
     def _add_widget(self, widget: XWidget) -> None:
         """添加控件"""
-        self._childen.append(widget)
-        widget._parent = self
-        if self._parent is None and not self._top:
-            return
-        widget._layout = self._draw_area
+        super()._add_widget(widget)
+        # 调节焦点
         if isinstance(widget, XCtrl):
             self._focus_list.append(widget)
             if self._focus_index == -1:
                 self._focus_index = 0
                 if self.enter:
                     self._focus_list[self._focus_index].focused = True
-            if isinstance(widget, XLayout):
-                widget._GUI = self._GUI
-                widget.create_draw_area()
-                widget.update_layout()
 
     def _key_response(self, key: int):
         """处理按键响应"""
@@ -231,6 +272,5 @@ class XText(XWidget):
         self._line = line
 
     def draw(self) -> None:
-        if self._parent is None:
-            return
-        self._parent.draw_text_proxy(self)
+        if self._layout is not None and GuiSingle.GUI_SINGLE is not None:
+            GuiSingle.GUI_SINGLE.draw_text(self)

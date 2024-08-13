@@ -103,3 +103,12 @@ class DisplayAPI(framebuf.FrameBuffer):
             return FrameBufferOffset(
                 tmp[byte_offset:], w, h, self.color_mode, width, 8 - (x % 8)
             )
+
+
+# 图形界面单例
+class GuiSingle:
+    GUI_SINGLE = None
+
+    @classmethod
+    def set_instance(cls, instance):
+        GuiSingle.GUI_SINGLE = instance

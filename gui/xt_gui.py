@@ -2,8 +2,8 @@ from math import ceil
 import utime
 import framebuf
 import gc
-from .widgets.base import *
 import asyncio
+from .widgets.base import *
 
 
 DEBUG = False
@@ -202,7 +202,9 @@ class XT_GUI:
         self.height = display.height
 
         # 基本容器布局
-        self._layout = XLayout((0, 0), (self.width, self.height), loop_focus, GUI=self)
+        self._layout = XFrameLayout(
+            (0, 0), (self.width, self.height), loop_focus, top=True
+        )
         self._layout.enter = True
         # 已进入的控件栈，按键事件会传递给顶层控件处理
         self.enter_widget_stack: list[XCtrl] = list()
@@ -236,3 +238,11 @@ class XT_GUI:
         #         self.CursorPosX = 0
         #         self.CursorPosY = 0
         gc.collect()
+
+    def __new__(cls, *args, **kwargs):
+        if GuiSingle.GUI_SINGLE is None:
+            gui = super().__new__(cls)
+            GuiSingle.set_instance(gui)
+            return gui
+        else:
+            return GuiSingle.GUI_SINGLE
