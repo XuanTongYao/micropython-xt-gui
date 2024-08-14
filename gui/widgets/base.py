@@ -52,10 +52,15 @@ class XCtrl(XWidget):
     """允许响应按键输入的控件基类"""
 
     def __init__(self, pos, wh, color=WHITE, key_input=None) -> None:
-        """
+        """_summary_
 
         Args:
-            KeyInput: 处理按键输入的函数,固定传入一个参数.
+            key_input: 处理按键输入的函数,固定传入一个按键值参数\n
+                对于当前进入的控件:\n
+                    返回一个XCtrl对象，表示进入到该对象。\n
+                    返回一个ESC，表示退出当前进入的控件。
+                对于未进入但已经进入其容器的控件:\n
+                    返回一个ENTER，指示上层容器需要进入到该控件。
         """
         super().__init__(pos, wh, color)
         # 光标或焦点是否到达此控件
@@ -79,7 +84,9 @@ class XLayout(XCtrl):
         # 焦点控件
         self._childen: list[XWidget] = []
         self._draw_area = None
+        # 容器宽高
         self._layout_wh = (0, 0)
+        # 容器相对坐标
         self._layout_pos = (0, 0)
 
     def _update(self) -> None:
@@ -89,7 +96,7 @@ class XLayout(XCtrl):
             child._update()
 
     def _calc_draw_area(self) -> tuple[tuple[int, int], tuple[int, int]]:
-        """计算绘制区域
+        """计算绘制区域，也就是容器相对于自己的相对坐标和宽高
 
         Returns:
             (x相对偏移,y相对偏移), (宽,高)
@@ -106,17 +113,29 @@ class XLayout(XCtrl):
         # 重写_calc_draw_area()函数即可
         (x_offset, y_offset), (w, h) = self._calc_draw_area()
 
-        # 限位
-        if not ignore:
-            x_max, y_max = self._parent._layout_wh  # type: ignore
-            if x_offset < 0 or y_offset < 0 or x_offset >= x_max or y_offset >= y_max:
-                raise ValueError("x_offset or y_offset out of range ")
-            w = min(w, x_max - x_offset)
-            h = min(h, y_max - y_offset)
+        # 内部限位
+        x_max, y_max = self._wh
+        if x_offset < 0 or y_offset < 0 or x_offset >= x_max or y_offset >= y_max:
+            self._draw_area = None
+            return
 
-        # 容器相对坐标
+        # 父容器限位
+        if not ignore:
+            x, y = self._pos
+            x += x_offset
+            y += y_offset
+            x_max, y_max = self._parent._layout_wh  # type: ignore
+            if x >= x_max or y >= y_max:
+                self._draw_area = None
+                return
+            if x < 0:
+                x_offset = -self._pos[0]
+            if y < 0:
+                y_offset = -self._pos[1]
+            w = min(w + x, w, x_max - x, x_max)
+            h = min(y + h, h, y_max - y, y_max)
+
         self._layout_pos = (x_offset, y_offset)
-        # 容器宽高
         self._layout_wh = (w, h)
         display = GuiSingle.GUI_SINGLE.display
         if isinstance(display, DisplayAPI):
@@ -125,23 +144,14 @@ class XLayout(XCtrl):
         else:
             raise TypeError("display must be DisplayAPI")
 
-    def draw(self) -> None:
+    def _adjust_layout(self) -> None:
+        """调整布局"""
         pass
 
-    def draw_deliver(self) -> None:
-        """传递绘制(不可重写)"""
-        self.draw()
-        x_max, y_max = self._layout_wh
-        for child in self._childen:
-            # 超出容器不绘制
-            x, y = child._pos
-            if x < 0 or y < 0 or x >= x_max or y >= y_max:
-                continue
-
-            if isinstance(child, XLayout):
-                child.draw_deliver()
-            else:
-                child.draw()
+    def _add_widget(self, widget: XWidget) -> None:
+        """添加控件"""
+        self._childen.append(widget)
+        widget._parent = self
 
     def add_widget(self, widget: XWidget) -> None:
         """添加子控件并调整布局(不可重写)"""
@@ -153,18 +163,27 @@ class XLayout(XCtrl):
         for child in self._childen:
             child._update()
 
-    def _adjust_layout(self) -> None:
-        """调整布局"""
+    def draw(self) -> None:
         pass
 
-    def _add_widget(self, widget: XWidget) -> None:
-        """添加控件"""
-        self._childen.append(widget)
-        widget._parent = self
+    def draw_deliver(self) -> None:
+        """传递绘制(不可重写)"""
+        self.draw()
+        x_max, y_max = self._layout_wh
+        for child in self._childen:
+            # 超出容器不绘制
+            x, y = child._pos
+            if x >= x_max or y >= y_max:
+                continue
+
+            if isinstance(child, XLayout):
+                child.draw_deliver()
+            else:
+                child.draw()
 
 
 class XFrameLayout(XLayout):
-    """拥有基础布局的容器基类"""
+    """拥有基础布局的容器基类，也是GUI的顶层容器。"""
 
     def __init__(
         self,
@@ -226,7 +245,12 @@ class XFrameLayout(XLayout):
                     self._focus_list[self._focus_index].focused = True
 
     def _key_response(self, key: int):
-        """处理按键响应"""
+        """处理按键响应
+
+        对于当前进入的控件:
+            返回一个XCtrl对象，表示进入到该对象
+            返回一个ESC，表示退出当前进入的控件
+        """
         if self.enter:
             if key == KEY_MOUSE0 and self._focus_list:
                 focus = self._focus_list[self._focus_index]
@@ -252,9 +276,10 @@ class XFrameLayout(XLayout):
                 else:
                     self._focus_index = old_index
             elif key == KEY_ESCAPE:
-                self._focus_list[self._focus_index].focused = False
                 self.enter = False
                 self.focused = True
+                if 0 <= self._focus_index < len(self._focus_list):
+                    self._focus_list[self._focus_index].focused = False
                 return ESC
         elif key == KEY_MOUSE0:
             self.enter = True

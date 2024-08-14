@@ -95,10 +95,12 @@ class XT_GUI:
         overlap=True,
         alternative_font=None,
     ):
+        if xtext._layout is None:
+            return
+        display = xtext._layout
         x, y = xtext._pos
         color = xtext._color
         font = self.font if alternative_font is None else alternative_font
-        display = self.display if xtext._layout is None else xtext._layout
         font_size = font.font_size
         half = font_size >> 1
         palette = self.pa_cache
@@ -164,16 +166,17 @@ class XT_GUI:
         """进入异步主循环"""
         asyncio.run(self.__show_gui_loop())
 
-    def key_response(self, KEY_ID: int):
-        """处理按键响应的函数"""
+    def key_response(self, key: int):
+        """处理按键响应的函数，将key参数传递到当前进入的XCtrl的_key_input函数中"""
         if self.enter_widget_stack:
             func = self.enter_widget_stack[-1]._key_input
-            if func is not None:
-                ret_val = func(KEY_ID)
+            ret_val = None if func is None else func(key)
         else:
             if self._layout._key_input is not None:
-                ret_val = self._layout._key_input(KEY_ID)
-        if ret_val == ESC and len(self.enter_widget_stack):
+                ret_val = self._layout._key_input(key)
+            else:
+                ret_val = None
+        if ret_val == ESC and self.enter_widget_stack:
             self.esc_widget()
         elif isinstance(ret_val, XCtrl):
             self.enter_widget(ret_val)
