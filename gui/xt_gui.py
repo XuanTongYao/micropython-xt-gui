@@ -162,8 +162,12 @@ class XT_GUI:
             self.refrash_frame()
             await asyncio.sleep(0)
 
-    def run(self):
-        """进入异步主循环"""
+    def run(self, *key_handlers):
+        """进入异步主循环，并启动key_handler的按键扫描循环"""
+        for key_handler in key_handlers:
+            if not callable(key_handler):
+                raise TypeError("key_handler must be callable to run async scan_loop")
+            key_handler()
         asyncio.run(self.__show_gui_loop())
 
     def key_response(self, key: int):
@@ -242,7 +246,7 @@ class XT_GUI:
         #         self.CursorPosY = 0
         gc.collect()
 
-    def __new__(cls, *args, **kwargs):
+    def __new__(cls, *args, **kwargs) -> "XT_GUI":
         if GuiSingle.GUI_SINGLE is None:
             gui = super().__new__(cls)
             GuiSingle.set_instance(gui)

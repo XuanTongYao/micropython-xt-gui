@@ -29,4 +29,4 @@ key_enter.set_press_func(GUI.key_response, KEY_MOUSE0)
 key_next = KeyHandler(setup_hardware.BTN_DOWN)
 key_next.set_press_func(GUI.key_response, KEY_DOWN)
 
-GUI.run()
+GUI.run(key_esc, key_enter, key_next)

@@ -39,8 +39,10 @@ class KeyHandler:
         self.set_hold_func(None)
 
         self.__fsm = RELEASED
-        self.__hold_sleep_task = asyncio.create_task(self.__hold_check(HOLD_MS / 1000))
         self.__reach_hold = False
+
+    def __call__(self):
+        self.__hold_sleep_task = asyncio.create_task(self.__hold_check(HOLD_MS / 1000))
         self.__scan_loop_task = asyncio.create_task(self.__do_scan_loop())
 
     def set_press_func(self, func, arg=()) -> None:
@@ -98,4 +100,5 @@ class KeyHandler:
 
     def stop_scan(self):
         """释放资源前必须手动调用此方法"""
+        self.__hold_sleep_task.cancel()
         self.__scan_loop_task.cancel()
