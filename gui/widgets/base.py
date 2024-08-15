@@ -52,8 +52,7 @@ class XCtrl(XWidget):
     """允许响应按键输入的控件基类"""
 
     def __init__(self, pos, wh, color=WHITE, key_input=None) -> None:
-        """_summary_
-
+        """
         Args:
             key_input: 处理按键输入的函数,固定传入一个按键值参数\n
                 对于当前进入的控件:\n
@@ -81,7 +80,7 @@ class XLayout(XCtrl):
 
     def __init__(self, pos, wh, color=WHITE, key_input=None) -> None:
         super().__init__(pos, wh, color, key_input)
-        # 焦点控件
+        # 子控件列表
         self._childen: list[XWidget] = []
         self._draw_area = None
         # 容器宽高
@@ -104,7 +103,7 @@ class XLayout(XCtrl):
         return (0, 0), self._wh
 
     def _create_draw_area(self, ignore=False):
-        """创建容器绘制区域(不可重写)"""
+        """创建绘制区域(不可重写)"""
         if GuiSingle.GUI_SINGLE is None:
             return
         if self._parent is None and not ignore:
