@@ -124,7 +124,7 @@ class XLayout(XCtrl):
             x += x_offset
             y += y_offset
             x_max, y_max = self._parent._layout_wh  # type: ignore
-            if x >= x_max or y >= y_max:
+            if x >= x_max or y >= y_max or w + x < 0 or y + h < 0:
                 self._draw_area = None
                 return
             if x < 0:
@@ -290,11 +290,50 @@ class XFrameLayout(XLayout):
 
 class XText(XWidget):
 
-    def __init__(self, pos, context: str, color=WHITE, line=1) -> None:
+    def __init__(
+        self, pos, context: str, color=WHITE, autowrap=True, font_size=None
+    ) -> None:
         super().__init__(pos, (0, 0), color)
         self._context = context
-        self._line = line
+        self._autowrap = autowrap
+        self._font_size = font_size
+        self._lines_index: list[int] = []
 
     def draw(self) -> None:
-        if self._layout is not None and GuiSingle.GUI_SINGLE is not None:
+        if GuiSingle.GUI_SINGLE is not None:
             GuiSingle.GUI_SINGLE.draw_text(self)
+
+    def _update(self) -> None:
+        super()._update()
+        if self._parent:
+            self._wh = self._parent._layout_wh
+        x, y = self._pos
+        w, h = self._wh
+        if x >= w or y >= h:
+            return
+
+        # 预处理文本，计算出每行文本的起始索引和y坐标
+        _lines_index = self._lines_index
+        _lines_index.clear()
+        _lines_index.append(0)
+        initial_x = x
+
+        font_size = self._font_size if self._font_size else GuiSingle.GUI_SINGLE.font.font_size  # type: ignore
+        half_size = font_size >> 1
+        autowarp = self._autowrap
+        for i, char in enumerate(self._context):
+            # 对特殊字符的处理优化
+            if ord(char) < 0x20 and char != "\n":
+                continue
+
+            # 自动换行
+            if autowarp and x + font_size > w:
+                _lines_index.append(i)
+                x = initial_x
+
+            if char == "\n":
+                x = w
+                continue
+
+            x += half_size if ord(char) <= 0x7F else font_size
+        _lines_index.append(len(self._context))

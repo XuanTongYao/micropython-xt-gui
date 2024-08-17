@@ -14,8 +14,8 @@ GUI = XT_GUI(
 )
 
 hello_button = XButton((0, 0), text="你好")
-you_checkbox = XCheckbox((38, 0), (48, 16), 16, text="你好")
-hao_radio = XRadio((86, 0), (48, 16), 16, text="你好")
+you_checkbox = XCheckbox((38, 0), (49, 16), 16, text="你好")
+hao_radio = XRadio((87, 0), (49, 16), 16, text="你好")
 
 # 添加控件
 for widget in [hello_button, you_checkbox, hao_radio]:

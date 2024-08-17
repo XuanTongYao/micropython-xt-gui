@@ -4,9 +4,9 @@ import framebuf
 import gc
 import asyncio
 from .widgets.base import *
+import micropython
 
-
-DEBUG = False
+DEBUG = True
 
 
 def timed_function(f, *args, **kwargs):
@@ -89,36 +89,70 @@ class XT_GUI:
             Palette.pixel(0, 0, BColor)
             self.display.blit(ImgFrame, X, Y, -1, Palette)
 
-    def draw_text(
-        self,
-        xtext: XText,
-        overlap=True,
-        alternative_font=None,
-    ):
+    # @timed_function
+    def draw_text(self, xtext: XText, overlap=True):
         if xtext._layout is None:
             return
         display = xtext._layout
+        autowarp = xtext._autowrap
         x, y = xtext._pos
-        color = xtext._color
-        font = self.font if alternative_font is None else alternative_font
+        w, h = xtext._wh
+
+        initial_x = x
+        font = self.font if xtext._font_size is None else xtext._font_size
         font_size = font.font_size
-        half = font_size >> 1
+        if font_size != self.font.font_size:
+            return
+        half_size = font_size >> 1
+        # 每行最后一个字最大x坐标
+        last_char_x = w - font_size
+
         palette = self.pa_cache
-        palette.pixel(1, 0, color)
+        palette.pixel(1, 0, xtext._color)
+
         word_frame = self._word_frame
-        word_cache = self._word_cache
-        for char in xtext._context:
-            font.fast_get_bitmap(char, word_cache)
+        half_word_frame = self._half_word_frame
+        word_buf = self._word_buf
+        # 计算要绘制的起始行和结束行
+        begin_line = ceil((-y) / font_size) if y < 0 else 0
+        end_line = min(ceil((h - y) / font_size), len(xtext._lines_index) - 1)
+        if begin_line >= len(xtext._lines_index):
+            return
+        begin_index = xtext._lines_index[begin_line]
+        end_index = xtext._lines_index[end_line]
+        # 开始绘制
+        y = max(y, 0)
+        for char in xtext._context[begin_index:end_index]:
+            # 对特殊字符的处理优化
+            if char == "\n":
+                y += font_size
+                x = initial_x
+                continue
+            elif ord(char) < 0x20:
+                continue
+
+            # 自动换行
+            if autowarp and x > last_char_x:
+                y += font_size
+                x = initial_x
+
+            if overlap and char == " ":
+                x += half_size
+                continue
+
+            # 超出显示范围跳过
+            if x >= w:
+                continue
+
+            tmp = half_word_frame if ord(char) <= 0x7F else word_frame
+            font.fast_get_bitmap(char, word_buf)
             if overlap:
-                display.blit(word_frame, x, y, 0, palette)
+                display.blit(tmp, x, y, 0, palette)
             else:
-                display.blit(word_frame, x, y, -1, palette)
-            # X坐标偏移一个字，
-            # 半角字符依照全角字符绘制的，只是坐标偏移不同，速度不会更快
-            if 0 <= ord(char) <= 0x7F:
-                x += half
-            else:
-                x += font_size
+                display.blit(tmp, x, y, -1, palette)
+            # X坐标偏移一个字
+            # 半角字符只绘制一半的像素量，速度会更快
+            x += half_size if ord(char) <= 0x7F else font_size
 
     def draw_background(self):
         self.display.fill(0)
@@ -219,10 +253,13 @@ class XT_GUI:
         # 字体初始化
         font_size = font.font_size
         # 字体数据缓存
-        self._word_cache = bytearray(ceil(font_size * font_size / 8))
+        self._word_buf = bytearray(ceil(font_size * font_size / 8))
         # 字体帧缓存
         self._word_frame = framebuf.FrameBuffer(
-            self._word_cache, font_size, font_size, framebuf.MONO_HLSB
+            self._word_buf, font_size, font_size, framebuf.MONO_HLSB
+        )
+        self._half_word_frame = framebuf.FrameBuffer(
+            self._word_buf, font_size >> 1, font_size, framebuf.MONO_HLSB, font_size
         )
 
         # 调色板缓存
