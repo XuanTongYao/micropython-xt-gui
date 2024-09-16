@@ -1,7 +1,6 @@
 from ..utils import *
 from framebuf import FrameBuffer
 
-
 FOCUSED_COLOR = RED
 
 
@@ -342,12 +341,22 @@ class XText(XWidget):
 class XImage(XWidget):
 
     def __init__(
-        self, pos, wh, raw_data: str | bytes, color=WHITE, background_color=None
+        self,
+        pos,
+        wh,
+        raw_data: str | bytes,
+        color=WHITE,
+        background_color=None,
+        *,
+        texture2d: Texture2D | None = None,
+        stream_loading=True
     ) -> None:
         super().__init__(pos, wh, color)
         self.background_color = background_color
         # 读取文件并判断格式
-        self.texture = texture = Texture2D(raw_data)
+        self.texture = texture = (
+            Texture2D(raw_data, not stream_loading) if texture2d is None else texture2d
+        )
         self.img_type = texture.img_type
 
         if texture.img_type == PBM_P4:
@@ -357,14 +366,15 @@ class XImage(XWidget):
                 self.palette.pixel(0, 0, background_color)
             if texture.is_bitmap:
                 self.img_frame = framebuf.FrameBuffer(
-                    texture.data, texture.w, texture.h, framebuf.MONO_HLSB
+                    texture.bitmap, texture.w, texture.h, framebuf.MONO_HLSB
                 )
         elif texture.img_type == PNG:
             if texture.is_bitmap:
                 self.img_frame = framebuf.FrameBuffer(
-                    texture.data, texture.w, texture.h, framebuf.RGB565
+                    texture.bitmap, texture.w, texture.h, framebuf.RGB565
                 )
 
+    @timed_function
     def draw(self) -> None:
         if self._layout is None:
             return
@@ -377,13 +387,6 @@ class XImage(XWidget):
             if self.texture.is_bitmap:
                 self._layout.blit(self.img_frame, *self._pos, alpha_color, self.palette)
             else:
-                # for unit_frame, go_next_row in self.texture:
-                #     self._layout.blit(unit_frame, x, y, alpha_color, self.palette)
-                #     if go_next_row:
-                #         x = self._pos[0]
-                #         y += 1
-                #     else:
-                #         x += 8
                 for row_frame in self.texture:
                     self._layout.blit(row_frame, x, y, alpha_color, self.palette)
                     y += 1
