@@ -312,7 +312,7 @@ class Texture2D:
             bpp = self.bitdepth * 3 / 8
 
         self.bpp = ceil(bpp)
-        self.SCANLINE_BYTES = ceil(self.w * bpp)
+        self.scanline_len = ceil(self.w * bpp)
 
         self.start_index = 8
         return PNG
@@ -336,17 +336,15 @@ class Texture2D:
         Args:
             stream: 如果传入IO流，则从流中解码数据到self.data。如果为None，则返回一条行扫描线的数据。
         """
-        one_line = False
         if stream is None:
-            one_line = True
             stream = self.data
             if self.colortype == Texture2D.PNG_TURECOLOR:
                 row_buff = bytearray(self.w * 2)
             else:
                 row_buff = bytearray(ceil(self.w / (8 / self.bitdepth)))
 
-        last_scanline = memoryview(bytearray(self.SCANLINE_BYTES))
-        scanline = memoryview(bytearray(self.SCANLINE_BYTES))
+        last_scanline = memoryview(bytearray(self.scanline_len))
+        scanline = memoryview(bytearray(self.scanline_len))
         scanline_remain_byte = 0
         data_offset = 0
         while True:
@@ -355,116 +353,114 @@ class Texture2D:
             if len(chunk_type) != 4:
                 raise ValueError("IEND not found")
 
-            if chunk_type == b"IEND" or chunk_type == b"IDAT":
-                chunk_data = stream.read(chunk_len)
-                chunk_crc = stream.read(4)
-                crc = crc32(chunk_type + chunk_data)
-                if crc.to_bytes(4, "big") != chunk_crc:
-                    raise ValueError("CRC check failed")
-
-                if chunk_type == b"IEND":
-                    self.img_type = PNG
-                    if not one_line:
-                        stream.close()
-                    return
-                else:
-
-                    def paeth_predictor(a, b, c):
-                        p = a + b - c
-                        pa = abs(p - a)
-                        pb = abs(p - b)
-                        pc = abs(p - c)
-                        if pa <= pb and pa <= pc:
-                            return a
-                        elif pb <= pc:
-                            return b
-                        else:
-                            return c
-
-                    # 解码: 解压->从解压数据中读取一条完整的扫描线数据->解码过滤器->解码像素数据
-                    with io.BytesIO(chunk_data) as c_data, deflate.DeflateIO(
-                        c_data, deflate.ZLIB, 13
-                    ) as d:
-                        while True:
-                            if scanline_remain_byte == 0:
-                                filter = d.read(1)
-                                if len(filter) == 1:
-                                    scanline_remain_byte = self.SCANLINE_BYTES
-                                else:
-                                    break
-                            # 读取扫描线样本
-                            n = d.readinto(scanline[-scanline_remain_byte:])
-                            scanline_remain_byte -= n
-
-                            if scanline_remain_byte != 0:
-                                break
-
-                            # 解码过滤器
-                            if filter == b"\x01":
-                                # 差分
-                                for x in range(self.SCANLINE_BYTES):
-                                    a = x - self.bpp
-                                    raw_bpp = 0 if a < 0 else scanline[a]
-                                    scanline[x] = (scanline[x] + raw_bpp) % 256
-                            elif filter == b"\x02":
-                                # 向上差分
-                                for x in range(self.SCANLINE_BYTES):
-                                    prior = last_scanline[x]
-                                    scanline[x] = (scanline[x] + prior) % 256
-                            elif filter == b"\x03":
-                                # 平均
-                                for x in range(self.SCANLINE_BYTES):
-                                    a = x - self.bpp
-                                    raw_bpp = 0 if a < 0 else scanline[a]
-                                    prior = last_scanline[x]
-                                    scanline[x] = (
-                                        scanline[x] + floor((raw_bpp + prior) / 2)
-                                    ) % 256
-                            elif filter == b"\x04":
-                                # 样条差分
-                                for x in range(self.SCANLINE_BYTES):
-                                    a = x - self.bpp
-                                    raw_bpp = 0 if a < 0 else scanline[a]
-                                    prior = last_scanline[x]
-                                    prior_bpp = 0 if a < 0 else last_scanline[a]
-                                    scanline[x] = (
-                                        scanline[x]
-                                        + paeth_predictor(raw_bpp, prior, prior_bpp)
-                                    ) % 256
-                            last_scanline[:] = scanline
-
-                            # 解码行像素数据
-                            if self.is_bitmap:
-                                dataview = memoryview(self.bitmap)
-                                if self.colortype == Texture2D.PNG_GRAY:
-                                    dataview[
-                                        data_offset : data_offset + self.SCANLINE_BYTES
-                                    ] = scanline
-                                    data_offset += self.SCANLINE_BYTES
-                                else:
-                                    for x in range(0, self.SCANLINE_BYTES, 3):
-                                        px = rgb888_to_rgb565(
-                                            scanline[x],
-                                            scanline[x + 1],
-                                            scanline[x + 2],
-                                        ).to_bytes(2, "big")
-                                        dataview[data_offset : data_offset + 2] = px
-                                        data_offset += 2
-                            else:
-                                dataview = memoryview(row_buff)
-                                if self.colortype == Texture2D.PNG_GRAY:
-                                    yield scanline
-                                    data_offset += self.SCANLINE_BYTES
-                                else:
-                                    data_offset = 0
-                                    for x in range(0, self.SCANLINE_BYTES, 3):
-                                        px = rgb888_to_rgb565(
-                                            scanline[x],
-                                            scanline[x + 1],
-                                            scanline[x + 2],
-                                        ).to_bytes(2, "big")
-                                        dataview[data_offset : data_offset + 2] = px
-                                        data_offset += 2
-                                    yield row_buff
-            else:
+            if chunk_type not in [b"IEND", b"IDAT"]:
                 stream.seek(chunk_len + 4, 1)
+                continue
+
+            # 读取块数据
+            chunk_data = stream.read(chunk_len)
+            chunk_crc = stream.read(4)
+            crc = crc32(chunk_type + chunk_data)
+            if crc.to_bytes(4, "big") != chunk_crc:
+                raise ValueError("CRC check failed")
+
+            if chunk_type == b"IEND":
+                self.img_type = PNG
+                return
+
+            def paeth_predictor(a, b, c):
+                p = a + b - c
+                pa = abs(p - a)
+                pb = abs(p - b)
+                pc = abs(p - c)
+                if pa <= pb and pa <= pc:
+                    return a
+                elif pb <= pc:
+                    return b
+                else:
+                    return c
+
+            # 解码: 解压->从解压数据中读取一条完整的扫描线数据->解码过滤器->解码像素数据
+            with io.BytesIO(chunk_data) as c_data, deflate.DeflateIO(
+                c_data, deflate.ZLIB, 13
+            ) as d:
+                while True:
+                    if scanline_remain_byte == 0:
+                        filter = d.read(1)
+                        if len(filter) == 1:
+                            scanline_remain_byte = self.scanline_len
+                        else:
+                            break
+                    # 读取扫描线样本
+                    n = d.readinto(scanline[-scanline_remain_byte:])
+                    scanline_remain_byte -= n
+
+                    if scanline_remain_byte != 0:
+                        break
+
+                    # 解码过滤器
+                    if filter == b"\x01":
+                        # 差分
+                        for x in range(self.scanline_len):
+                            a = x - self.bpp
+                            raw_bpp = 0 if a < 0 else scanline[a]
+                            scanline[x] = (scanline[x] + raw_bpp) % 256
+                    elif filter == b"\x02":
+                        # 向上差分
+                        for x in range(self.scanline_len):
+                            prior = last_scanline[x]
+                            scanline[x] = (scanline[x] + prior) % 256
+                    elif filter == b"\x03":
+                        # 平均
+                        for x in range(self.scanline_len):
+                            a = x - self.bpp
+                            raw_bpp = 0 if a < 0 else scanline[a]
+                            prior = last_scanline[x]
+                            scanline[x] = (
+                                scanline[x] + floor((raw_bpp + prior) / 2)
+                            ) % 256
+                    elif filter == b"\x04":
+                        # 样条差分
+                        for x in range(self.scanline_len):
+                            a = x - self.bpp
+                            raw_bpp = 0 if a < 0 else scanline[a]
+                            prior = last_scanline[x]
+                            prior_bpp = 0 if a < 0 else last_scanline[a]
+                            scanline[x] = (
+                                scanline[x] + paeth_predictor(raw_bpp, prior, prior_bpp)
+                            ) % 256
+                    last_scanline[:] = scanline
+
+                    # 解码行像素数据
+                    if self.is_bitmap:
+                        dataview = memoryview(self.bitmap)
+                        if self.colortype == Texture2D.PNG_GRAY:
+                            dataview[data_offset : data_offset + self.scanline_len] = (
+                                scanline
+                            )
+                            data_offset += self.scanline_len
+                        else:
+                            for x in range(0, self.scanline_len, 3):
+                                px = rgb888_to_rgb565(
+                                    scanline[x],
+                                    scanline[x + 1],
+                                    scanline[x + 2],
+                                ).to_bytes(2, "big")
+                                dataview[data_offset : data_offset + 2] = px
+                                data_offset += 2
+                    else:
+                        dataview = memoryview(row_buff)
+                        if self.colortype == Texture2D.PNG_GRAY:
+                            yield scanline
+                            data_offset += self.scanline_len
+                        else:
+                            data_offset = 0
+                            for x in range(0, self.scanline_len, 3):
+                                px = rgb888_to_rgb565(
+                                    scanline[x],
+                                    scanline[x + 1],
+                                    scanline[x + 2],
+                                ).to_bytes(2, "big")
+                                dataview[data_offset : data_offset + 2] = px
+                                data_offset += 2
+                            yield row_buff
