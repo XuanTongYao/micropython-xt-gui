@@ -4,7 +4,6 @@ import framebuf
 import gc
 import asyncio
 from .widgets.base import *
-import micropython
 
 DEBUG = True
 
@@ -41,53 +40,6 @@ class XT_GUI:
     ShowGUI函数会检查部分类型的遮蔽情况,决定是否重绘
     如果出现图像异常可以在ShowGUI之前调用DrawBackground强制重绘背景
     """
-
-    def draw_binary_image(
-        self,
-        Data: bytes | str,
-        PosXY,
-        Color: int = WHITE,
-        BColor: int | None = None,
-        SizeWH=(1, 1),
-        Format="pbm",
-    ):
-        """绘制二值化点阵图
-        Args:
-            Data: 不带文件头的数据或者文件路径
-            PosXY: 起始位置
-            Color: 前景颜色
-            BColor: 背景颜色,如果为None则透明
-            SizeWH: 宽高
-            Format: 文件格式
-        """
-        X, Y = PosXY
-        W, H = SizeWH
-        Palette = framebuf.FrameBuffer(bytearray(4), 2, 1, framebuf.RGB565)
-        Palette.pixel(1, 0, Color)
-        ImgFrame = None
-        if type(Data) is bytes:
-            if Format == "pbm":
-                ImgFrame = framebuf.FrameBuffer(
-                    bytearray(Data), W, H, framebuf.MONO_HLSB
-                )
-        else:
-            with open(Data, "rb") as Img:
-                head = Img.readline()
-                if head == b"P4\x0A":
-                    W = int(Img.readline().decode("ASCII"))
-                    H = int(Img.readline().decode("ASCII"))
-                    Img = bytearray(Img.read(ceil(W / 8) * H))
-                    ImgFrame = framebuf.FrameBuffer(Img, W, H, framebuf.MONO_HLSB)
-
-        if ImgFrame is None:
-            print("数据缺失或无法识别格式")
-            return
-
-        if BColor is None:
-            self.display.blit(ImgFrame, X, Y, 0, Palette)
-        else:
-            Palette.pixel(0, 0, BColor)
-            self.display.blit(ImgFrame, X, Y, -1, Palette)
 
     # @timed_function
     def draw_text(self, xtext: XText, overlap=True):
@@ -195,6 +147,8 @@ class XT_GUI:
             self._layout.draw_deliver()
             self.refrash_frame()
             await asyncio.sleep(0)
+            gc.collect()
+            print("Remaining memory:", gc.mem_free())
 
     def run(self, *key_handlers):
         """进入异步主循环，并启动key_handler的按键扫描循环"""

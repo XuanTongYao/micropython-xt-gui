@@ -12,8 +12,8 @@
 
 ```python
 # 占用空间简单计算公式
-_1位单色屏 = ceil(width*height/8)
-_RGB565屏 = ceil(width*height*2)
+_1位单色屏 = ceil(width/8)*height
+_RGB565屏 = width*height*2
 ```
 
 例如：
