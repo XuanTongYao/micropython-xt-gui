@@ -1,21 +1,21 @@
+import gc
 from machine import ADC
-from micropython import const
 
 # 硬件参数调教(Hardware parameter tuning)
 # 参数设置都是按照16位精度设置的
 # 请根据自身硬件的情况调整
-DEADZONE = const(100)
-CENTER_X = const(32795)
-CENTER_Y = const(31950)
-MAX_X = const(65270)
-MAX_Y = const(63950)
-MIN_X = const(230)
-MIN_Y = const(210)
+_DEADZONE = const(100)
+_CENTER_X = const(32795)
+_CENTER_Y = const(31950)
+_MAX_X = const(65270)
+_MAX_Y = const(63950)
+_MIN_X = const(230)
+_MIN_Y = const(210)
 
-TOTAL_SPACE_MAX_X = const(MAX_X - CENTER_X)
-TOTAL_SPACE_MAX_Y = const(MAX_Y - CENTER_Y)
-TOTAL_SPACE_MIN_X = const(CENTER_X - MIN_X)
-TOTAL_SPACE_MIN_Y = const(CENTER_Y - MIN_Y)
+_TOTAL_SPACE_MAX_X = const(_MAX_X - _CENTER_X)
+_TOTAL_SPACE_MAX_Y = const(_MAX_Y - _CENTER_Y)
+_TOTAL_SPACE_MIN_X = const(_CENTER_X - _MIN_X)
+_TOTAL_SPACE_MIN_Y = const(_CENTER_Y - _MIN_Y)
 
 
 class FJ08K:
@@ -41,34 +41,34 @@ class FJ08K:
     def x_hp(self) -> float:
         """硬件参数调教输出"""
         X = self.X_AXIS.read_u16()
-        X_TO_CEN = X - CENTER_X
-        if X >= MAX_X:
+        X_TO_CEN = X - _CENTER_X
+        if X >= _MAX_X:
             return 1
-        elif X <= MIN_X:
+        elif X <= _MIN_X:
             return -1
 
         if -50 <= X_TO_CEN <= 50:
             return 0
         elif 50 < X_TO_CEN:
-            return X_TO_CEN / TOTAL_SPACE_MAX_X
+            return X_TO_CEN / _TOTAL_SPACE_MAX_X
         else:
-            return X_TO_CEN / TOTAL_SPACE_MIN_X
+            return X_TO_CEN / _TOTAL_SPACE_MIN_X
 
     def y_hp(self) -> float:
         """硬件参数调教输出"""
         Y = self.Y_AXIS.read_u16()
-        Y_TO_CEN = Y - CENTER_Y
-        if Y >= MAX_Y:
+        Y_TO_CEN = Y - _CENTER_Y
+        if Y >= _MAX_Y:
             return 1
-        elif Y <= MIN_Y:
+        elif Y <= _MIN_Y:
             return -1
 
         if -50 <= Y_TO_CEN <= 50:
             return 0
         elif 50 < Y_TO_CEN:
-            return Y_TO_CEN / TOTAL_SPACE_MAX_Y
+            return Y_TO_CEN / _TOTAL_SPACE_MAX_Y
         else:
-            return Y_TO_CEN / TOTAL_SPACE_MIN_Y
+            return Y_TO_CEN / _TOTAL_SPACE_MIN_Y
 
     def x(self) -> float:
         """软件参数调教输出"""
@@ -99,3 +99,6 @@ class FJ08K:
             return self._SimulateKey(self.x, 0.5)
         else:
             return self._SimulateKey(self.y, 0.5)
+
+
+gc.collect()

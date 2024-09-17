@@ -27,67 +27,66 @@ SOFTWARE.
 
 # I've modified and simplified some of them to make better use of framebuf.
 
-
+import gc
 import time, framebuf
-from micropython import const
-import ustruct as struct
+import struct
 from machine import SPI
 
 # commands
-ST7789_NOP = const(0x00)
-ST7789_SWRESET = const(0x01)
-ST7789_RDDID = const(0x04)
-ST7789_RDDST = const(0x09)
+_ST7789_NOP = const(0x00)
+_ST7789_SWRESET = const(0x01)
+_ST7789_RDDID = const(0x04)
+_ST7789_RDDST = const(0x09)
 
-ST7789_SLPIN = const(0x10)
-ST7789_SLPOUT = const(0x11)
-ST7789_PTLON = const(0x12)
-ST7789_NORON = const(0x13)
+_ST7789_SLPIN = const(0x10)
+_ST7789_SLPOUT = const(0x11)
+_ST7789_PTLON = const(0x12)
+_ST7789_NORON = const(0x13)
 
-ST7789_INVOFF = const(0x20)
-ST7789_INVON = const(0x21)
-ST7789_DISPOFF = const(0x28)
-ST7789_DISPON = const(0x29)
-ST7789_CASET = const(0x2A)
-ST7789_RASET = const(0x2B)
-ST7789_RAMWR = const(0x2C)
-ST7789_RAMRD = const(0x2E)
+_ST7789_INVOFF = const(0x20)
+_ST7789_INVON = const(0x21)
+_ST7789_DISPOFF = const(0x28)
+_ST7789_DISPON = const(0x29)
+_ST7789_CASET = const(0x2A)
+_ST7789_RASET = const(0x2B)
+_ST7789_RAMWR = const(0x2C)
+_ST7789_RAMRD = const(0x2E)
 
-ST7789_PTLAR = const(0x30)
-ST7789_VSCRDEF = const(0x33)
-ST7789_COLMOD = const(0x3A)
-ST7789_MADCTL = const(0x36)
-ST7789_VSCSAD = const(0x37)
+_ST7789_PTLAR = const(0x30)
+_ST7789_VSCRDEF = const(0x33)
+_ST7789_COLMOD = const(0x3A)
+_ST7789_MADCTL = const(0x36)
+_ST7789_VSCSAD = const(0x37)
 
-ST7789_MADCTL_MY = const(0x80)
-ST7789_MADCTL_MX = const(0x40)
-ST7789_MADCTL_MV = const(0x20)
-ST7789_MADCTL_ML = const(0x10)
-ST7789_MADCTL_BGR = const(0x08)
-ST7789_MADCTL_MH = const(0x04)
-ST7789_MADCTL_RGB = const(0x00)
+_ST7789_MADCTL_MY = const(0x80)
+_ST7789_MADCTL_MX = const(0x40)
+_ST7789_MADCTL_MV = const(0x20)
+_ST7789_MADCTL_ML = const(0x10)
+_ST7789_MADCTL_BGR = const(0x08)
+_ST7789_MADCTL_MH = const(0x04)
+_ST7789_MADCTL_RGB = const(0x00)
 
-ST7789_RDID1 = const(0xDA)
-ST7789_RDID2 = const(0xDB)
-ST7789_RDID3 = const(0xDC)
-ST7789_RDID4 = const(0xDD)
+_ST7789_RDID1 = const(0xDA)
+_ST7789_RDID2 = const(0xDB)
+_ST7789_RDID3 = const(0xDC)
+_ST7789_RDID4 = const(0xDD)
 
-COLOR_MODE_65K = const(0x50)
-COLOR_MODE_262K = const(0x60)
-COLOR_MODE_12BIT = const(0x03)
-COLOR_MODE_16BIT = const(0x05)
-COLOR_MODE_18BIT = const(0x06)
-COLOR_MODE_16M = const(0x07)
+_COLOR_MODE_65K = const(0x50)
+_COLOR_MODE_262K = const(0x60)
+_COLOR_MODE_12BIT = const(0x03)
+_COLOR_MODE_16BIT = const(0x05)
+_COLOR_MODE_18BIT = const(0x06)
+_COLOR_MODE_16M = const(0x07)
 
-# Color definitions
-BLACK = const(0x0000)
-BLUE = const(0x001F)
-RED = const(0xF800)
-GREEN = const(0x07E0)
-CYAN = const(0x07FF)
-MAGENTA = const(0xF81F)
-YELLOW = const(0xFFE0)
-WHITE = const(0xFFFF)
+# Color definitions LE
+# BLACK = const(0x0000)
+# BLUE = const(0x001F)
+# RED = const(0xF800)
+# GREEN = const(0x07E0)
+# CYAN = const(0x07FF)
+# MAGENTA = const(0xF81F)
+# YELLOW = const(0xFFE0)
+# WHITE = const(0xFFFF)
 
 _ENCODE_PIXEL = ">H"
 _ENCODE_POS = ">HH"
@@ -147,18 +146,18 @@ class ST7789:
         self.soft_reset()
         self.sleep_mode(False)
 
-        self._set_color_mode(COLOR_MODE_65K | COLOR_MODE_16BIT)
+        self._set_color_mode(_COLOR_MODE_65K | _COLOR_MODE_16BIT)
         time.sleep_ms(50)
         self.rotation(self._rotation)
         self.inversion_mode(True)
         time.sleep_ms(10)
-        self.write(ST7789_NORON)
+        self.write(_ST7789_NORON)
         time.sleep_ms(10)
         if backlight is not None:
             backlight.value(1)
         self.set_fullscreen()
         self.clear_gddram()
-        self.write(ST7789_DISPON)
+        self.write(_ST7789_DISPON)
         time.sleep_ms(500)
 
     def write(self, command=None, data=None):
@@ -200,7 +199,7 @@ class ST7789:
         """
         Soft reset display.
         """
-        self.write(ST7789_SWRESET)
+        self.write(_ST7789_SWRESET)
         time.sleep_ms(150)
 
     def sleep_mode(self, value: bool):
@@ -208,18 +207,18 @@ class ST7789:
         Enable or disable display sleep mode.
         """
         if value:
-            self.write(ST7789_SLPIN)
+            self.write(_ST7789_SLPIN)
         else:
-            self.write(ST7789_SLPOUT)
+            self.write(_ST7789_SLPOUT)
 
     def inversion_mode(self, value: bool):
         """
         Enable or disable display inversion mode.
         """
         if value:
-            self.write(ST7789_INVON)
+            self.write(_ST7789_INVON)
         else:
-            self.write(ST7789_INVOFF)
+            self.write(_ST7789_INVOFF)
 
     def _set_color_mode(self, mode):
         """
@@ -227,10 +226,10 @@ class ST7789:
 
         Args:
             mode (int): color mode
-                COLOR_MODE_65K, COLOR_MODE_262K, COLOR_MODE_12BIT,
-                COLOR_MODE_16BIT, COLOR_MODE_18BIT, COLOR_MODE_16M
+                _COLOR_MODE_65K, _COLOR_MODE_262K, _COLOR_MODE_12BIT,
+                _COLOR_MODE_16BIT, _COLOR_MODE_18BIT, _COLOR_MODE_16M
         """
-        self.write(ST7789_COLMOD, bytes([mode & 0x77]))
+        self.write(_ST7789_COLMOD, bytes([mode & 0x77]))
 
     def rotation(self, rotation):
         """
@@ -242,7 +241,7 @@ class ST7789:
         """
         self._rotation = rotation % 4
         if self._rotation == 0:  # Portrait
-            madctl = ST7789_MADCTL_RGB
+            madctl = _ST7789_MADCTL_RGB
             self.width = self._display_width
             self.height = self._display_height
             if self._display_width == 135:
@@ -250,7 +249,7 @@ class ST7789:
                 self.ystart = 40
 
         elif self._rotation == 1:  # Landscape
-            madctl = ST7789_MADCTL_MX | ST7789_MADCTL_MV | ST7789_MADCTL_RGB
+            madctl = _ST7789_MADCTL_MX | _ST7789_MADCTL_MV | _ST7789_MADCTL_RGB
             self.width = self._display_height
             self.height = self._display_width
             if self._display_width == 135:
@@ -258,35 +257,35 @@ class ST7789:
                 self.ystart = 53
 
         elif self._rotation == 2:  # Inverted Portrait
-            madctl = ST7789_MADCTL_MX | ST7789_MADCTL_MY | ST7789_MADCTL_RGB
+            madctl = _ST7789_MADCTL_MX | _ST7789_MADCTL_MY | _ST7789_MADCTL_RGB
             self.width = self._display_width
             self.height = self._display_height
             if self._display_width == 135:
                 self.xstart = 53
                 self.ystart = 40
         else:  # Inverted Landscape
-            madctl = ST7789_MADCTL_MV | ST7789_MADCTL_MY | ST7789_MADCTL_RGB
+            madctl = _ST7789_MADCTL_MV | _ST7789_MADCTL_MY | _ST7789_MADCTL_RGB
             self.width = self._display_height
             self.height = self._display_width
             if self._display_width == 135:
                 self.xstart = 40
                 self.ystart = 52
 
-        self.write(ST7789_MADCTL, bytes([madctl]))
+        self.write(_ST7789_MADCTL, bytes([madctl]))
 
     def set_fullscreen(self):
         """设置显示窗口为全屏"""
         self.write(
-            ST7789_CASET, _encode_pos(0 + self.xstart, self.width - 1 + self.xstart)
+            _ST7789_CASET, _encode_pos(0 + self.xstart, self.width - 1 + self.xstart)
         )
         self.write(
-            ST7789_RASET, _encode_pos(0 + self.ystart, self.height - 1 + self.ystart)
+            _ST7789_RASET, _encode_pos(0 + self.ystart, self.height - 1 + self.ystart)
         )
-        self.write(ST7789_RAMWR)
+        self.write(_ST7789_RAMWR)
 
     def write_gddram(self, buffer):
         """在当前窗口写入GDDRAM数据"""
-        self.write(ST7789_RAMWR, buffer)
+        self.write(_ST7789_RAMWR, buffer)
 
     def clear_gddram(self):
         chunks, rest = divmod(self.width * self.height, _BUFFER_SIZE)
@@ -300,21 +299,4 @@ class ST7789:
             self.write(None, pixel * rest)
 
 
-class ST7789_API(framebuf.FrameBuffer):
-    def __init__(self, st7789: ST7789) -> None:
-        self.st7789 = st7789
-        st7789.set_fullscreen()
-        self.width = st7789.width
-        self.height = st7789.height
-        self.buffer = bytearray(self.width * self.height * 2)
-        super().__init__(self.buffer, self.width, self.height, framebuf.RGB565)
-
-    def clear(self):
-        self.fill(0)
-        self.update_frame()
-
-    def update_frame(self):
-        self.st7789.write_gddram(self.buffer)
-
-    def show(self):
-        self.st7789.write_gddram(self.buffer)
+gc.collect()
