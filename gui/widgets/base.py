@@ -354,27 +354,30 @@ class XImage(XWidget):
         super().__init__(pos, wh, color)
         self.background_color = background_color
         # 读取文件并判断格式
-        self.texture = texture = (
+        self.texture = (
             Texture2D(raw_data, not stream_loading) if texture2d is None else texture2d
         )
-        self.img_type = texture.img_type
+        self.img_type = self.texture.img_format
+        self.index_color = False
 
-        if texture.img_type == PBM_P4:
-            self.palette = framebuf.FrameBuffer(bytearray(4), 2, 1, framebuf.RGB565)
-            self.palette.pixel(1, 0, color)
-            if background_color is not None:
-                self.palette.pixel(0, 0, background_color)
-            if texture.is_bitmap:
-                self.img_frame = framebuf.FrameBuffer(
-                    texture.bitmap, texture.w, texture.h, framebuf.MONO_HLSB
+        if self.texture.color_mode != framebuf.RGB565:
+            self.palette_used = True
+            if self.texture.palette_used:
+                self.palette = self.texture.palette
+            else:
+                self.palette = framebuf.FrameBuffer(
+                    bytearray(2 * 2**self.texture.bitdepth),
+                    2**self.texture.bitdepth,
+                    1,
+                    framebuf.RGB565,
                 )
-        elif texture.img_type == PNG:
-            if texture.is_bitmap:
-                self.img_frame = framebuf.FrameBuffer(
-                    texture.bitmap, texture.w, texture.h, framebuf.RGB565
-                )
+                # 灰度颜色插值
+                self.palette.pixel(1, 0, color)
+                if background_color is not None:
+                    self.palette.pixel(0, 0, background_color)
+        else:
+            self.palette_used = False
 
-    @timed_function
     def draw(self) -> None:
         if self._layout is None:
             return
@@ -382,18 +385,24 @@ class XImage(XWidget):
         # 如果纹理是以bitmap方式加载的，可以直接绘制
         # 如果纹理是以流式方式或非bitmap加载的，则需要使用迭代器逐行绘制
         x, y = self._pos
-        if self.img_type == PBM_P4:
+
+        texture = self.texture
+        palette = self.palette
+
+        if self.palette_used:
             alpha_color = 0 if self.background_color is None else -1
-            if self.texture.is_bitmap:
-                self._layout.blit(self.img_frame, *self._pos, alpha_color, self.palette)
+            if texture.type == Texture2D.TEX_BITMAP:
+                self._layout.blit(
+                    texture.bitmap_frame, *self._pos, alpha_color, palette
+                )
             else:
-                for row_frame in self.texture:
-                    self._layout.blit(row_frame, x, y, alpha_color, self.palette)
+                for row_frame in texture:
+                    self._layout.blit(row_frame, x, y, alpha_color, palette)
                     y += 1
-        elif self.img_type == PNG:
-            if self.texture.is_bitmap:
-                self._layout.blit(self.img_frame, *self._pos)
+        else:
+            if texture.type == Texture2D.TEX_BITMAP:
+                self._layout.blit(texture.bitmap_frame, *self._pos)
             else:
-                for row_frame in self.texture:
+                for row_frame in texture:
                     self._layout.blit(row_frame, x, y)
                     y += 1

@@ -1,16 +1,12 @@
 # 这是一个处理物理按键输入的模块
-from time import sleep_ms
-from array import array
-from machine import Pin
-from machine import Timer
 import micropython
 import asyncio
 
 # 状态机常量
-RELEASED = const(0)
-DEBOUNCED = const(1)
-PRESSED = const(2)
-HOLDED = const(3)
+_RELEASED = const(0)
+_DEBOUNCED = const(1)
+_PRESSED = const(2)
+_HOLDED = const(3)
 
 # 去抖动时间
 DEBOUNCE_MS = const(50)
@@ -38,7 +34,7 @@ class KeyHandler:
         self.set_release_func(None)
         self.set_hold_func(None)
 
-        self.__fsm = RELEASED
+        self.__fsm = _RELEASED
         self.__reach_hold = False
 
     def __call__(self):
@@ -62,10 +58,10 @@ class KeyHandler:
             hold_sleep_task = self.__hold_sleep_task
             # 状态机
             if self.key() == self.active:
-                if self.__fsm == RELEASED:
-                    self.__fsm = DEBOUNCED
-                elif self.__fsm == DEBOUNCED:
-                    self.__fsm = PRESSED
+                if self.__fsm == _RELEASED:
+                    self.__fsm = _DEBOUNCED
+                elif self.__fsm == _DEBOUNCED:
+                    self.__fsm = _PRESSED
                     hold_sleep_task.cancel()
                     self.__hold_sleep_task = asyncio.create_task(
                         self.__hold_check(HOLD_MS / 1000)
@@ -73,9 +69,9 @@ class KeyHandler:
                     if self.__press_callback is not None:
                         micropython.schedule(self.__press_callback, self.__press_arg)
                 elif (
-                    self.__fsm == PRESSED or self.__fsm == HOLDED
+                    self.__fsm == _PRESSED or self.__fsm == _HOLDED
                 ) and self.__reach_hold:
-                    self.__fsm = HOLDED
+                    self.__fsm = _HOLDED
                     self.__reach_hold = False
                     hold_sleep_task.cancel()
                     self.__hold_sleep_task = asyncio.create_task(
@@ -85,16 +81,16 @@ class KeyHandler:
                         micropython.schedule(self.__hold_callback, self.__hold_arg)
             else:
                 if (
-                    self.__fsm == PRESSED or self.__fsm == HOLDED
+                    self.__fsm == _PRESSED or self.__fsm == _HOLDED
                 ) and self.__release_callback is not None:
                     micropython.schedule(self.__release_callback, self.__release_arg)
-                self.__fsm = RELEASED
+                self.__fsm = _RELEASED
             await asyncio.sleep(DEBOUNCE_MS / 1000)
 
     async def __hold_check(self, time_sec):
         try:
             await asyncio.sleep(time_sec)
-            self.__reach_hold = self.__fsm == PRESSED
+            self.__reach_hold = self.__fsm == _PRESSED
         finally:
             pass
 
