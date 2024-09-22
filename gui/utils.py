@@ -1,5 +1,5 @@
 import framebuf
-from math import ceil, floor
+from math import ceil, floor, log2
 import io
 import deflate
 import micropython, gc
@@ -162,11 +162,27 @@ def rgb888_to_rgb565(r8: int, g8: int, b8: int, big_endian=False) -> int:
     g8 >>= 2
     b8 >>= 3
     color = (r8 << 11) | (g8 << 5) | b8
-    # (color & 0xFF00) >> 8 | (color & 0x00FF) << 8
     if big_endian:
         return (color & 0xFF00) >> 8 | (color & 0x00FF) << 8
     else:
-        return (r8 << 11) | (g8 << 5) | b8
+        return color
+
+
+def separate_rgb565(rgb565: int, big_endian=False) -> tuple[int, int, int]:
+    if big_endian:
+        rgb565 = (rgb565 & 0xFF00) >> 8 | (rgb565 & 0x00FF) << 8
+    r5 = rgb565 >> 11
+    g6 = (rgb565 & 0x07E0) >> 5
+    b5 = rgb565 & 0x001F
+    return (r5, g6, b5)
+
+
+def combined_rgb565(r5: int, g6: int, b5: int, big_endian=False) -> int:
+    rgb565 = (r5 << 11) | (g6 << 5) | b5
+    if big_endian:
+        return (rgb565 & 0xFF00) >> 8 | (rgb565 & 0x00FF) << 8
+    else:
+        return rgb565
 
 
 # 图像格式枚举
@@ -195,6 +211,7 @@ class Texture2D:
     __bitmap_buf : 完整点阵图的缓冲区，用于 TEX_BITMAP 类型。
     __scanline_buf : 一条扫描线的缓冲区, 用于 TEX_STREAMING 类型。
     __scanline_frame : 一条扫描线的的帧数据, 用于 TEX_STREAMING 类型。
+    __data : 保存二进制数据流, 用于 TEX_STREAMING 类型。
 
     """
 
@@ -250,8 +267,9 @@ class Texture2D:
         del raw_data
 
         # 解析文件头并检查是否支持该类型
-        self.img_format = img_format = self.__parse_header(img)
-        if img_format is None:
+        self.img_format = self.__parse_header(img)
+        gc.collect()
+        if self.img_format is None:
             raise ValueError("Unsupported image format")
 
         # 创建帧数据
@@ -353,7 +371,7 @@ class Texture2D:
             bpp = self.bitdepth / 8
         else:
             bpp = self.bitdepth * 3 / 8
-        self.__bpp = ceil(bpp)
+        self.__png_bpp = ceil(bpp)
         self.__png_scanline_len = ceil(self.w * bpp)
 
         # 寻找调色板
@@ -423,9 +441,6 @@ class Texture2D:
                 self.__bitmap_buf = bytearray(self.w * 2 * self.h)
             else:
                 self.__scanline_buf = bytearray(self.w * 2)
-
-        print("样本色深", self.__png_sample_bitdepth, "色深", self.bitdepth)
-
         return PNG
 
     def __parse_header_jpeg(self, stream: io.BufferedReader | io.BytesIO) -> int | None:
@@ -452,6 +467,18 @@ class Texture2D:
 
         last_scanline = memoryview(bytearray(self.__png_scanline_len))
         scanline = memoryview(bytearray(self.__png_scanline_len))
+        if (
+            self.png_type == Texture2D.PNG_GRAY
+            or self.png_type == Texture2D.PNG_INDEX_COLOR
+        ):
+            predicted_wbits = ceil(
+                log2(ceil(self.w * self.__png_sample_bitdepth / 8) * self.h)
+            )
+        else:
+            predicted_wbits = ceil(
+                log2(ceil(self.w * self.__png_sample_bitdepth * 3 / 8) * self.h)
+            )
+
         scanline_remain_byte = 0
         data_offset = 0
         row = 0
@@ -477,7 +504,6 @@ class Texture2D:
                 raise ValueError("CRC check failed")
 
             if chunk_type == b"IEND":
-                self.img_format = PNG
                 return
 
             def paeth_predictor(a, b, c):
@@ -494,11 +520,10 @@ class Texture2D:
 
             # 解码: 解压->从解压数据中读取一条完整的扫描线数据->解码过滤器->解码像素数据
             with io.BytesIO(chunk_data) as c_data, deflate.DeflateIO(
-                c_data, deflate.ZLIB, 1
+                c_data, deflate.ZLIB, predicted_wbits
             ) as d:
                 gc.collect()
                 # print(micropython.mem_info(1))
-
                 while True:
                     if scanline_remain_byte == 0:
                         filter = d.read(1)
@@ -517,7 +542,7 @@ class Texture2D:
                     if filter == b"\x01":
                         # 差分
                         for x in range(self.__png_scanline_len):
-                            a = x - self.__bpp
+                            a = x - self.__png_bpp
                             raw_bpp = 0 if a < 0 else scanline[a]
                             scanline[x] = (scanline[x] + raw_bpp) % 256
                     elif filter == b"\x02":
@@ -528,7 +553,7 @@ class Texture2D:
                     elif filter == b"\x03":
                         # 平均
                         for x in range(self.__png_scanline_len):
-                            a = x - self.__bpp
+                            a = x - self.__png_bpp
                             raw_bpp = 0 if a < 0 else scanline[a]
                             prior = last_scanline[x]
                             scanline[x] = (
@@ -537,7 +562,7 @@ class Texture2D:
                     elif filter == b"\x04":
                         # 样条差分
                         for x in range(self.__png_scanline_len):
-                            a = x - self.__bpp
+                            a = x - self.__png_bpp
                             raw_bpp = 0 if a < 0 else scanline[a]
                             prior = last_scanline[x]
                             prior_bpp = 0 if a < 0 else last_scanline[a]

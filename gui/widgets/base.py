@@ -365,14 +365,18 @@ class XImage(XWidget):
             if self.texture.palette_used:
                 self.palette = self.texture.palette
             else:
+                color_num = 2**self.texture.bitdepth
                 self.palette = framebuf.FrameBuffer(
-                    bytearray(2 * 2**self.texture.bitdepth),
-                    2**self.texture.bitdepth,
-                    1,
-                    framebuf.RGB565,
+                    bytearray(2 * color_num), color_num, 1, framebuf.RGB565
                 )
                 # 灰度颜色插值
-                self.palette.pixel(1, 0, color)
+                r, g, b = separate_rgb565(color, True)
+                for i in range(0, color_num):
+                    ratio = i / (color_num - 1)
+                    r_ = ceil(r * ratio)
+                    g_ = ceil(g * ratio)
+                    b_ = ceil(b * ratio)
+                    self.palette.pixel(i, 0, combined_rgb565(r_, g_, b_, True))
                 if background_color is not None:
                     self.palette.pixel(0, 0, background_color)
         else:
@@ -387,9 +391,9 @@ class XImage(XWidget):
         x, y = self._pos
 
         texture = self.texture
-        palette = self.palette
 
         if self.palette_used:
+            palette = self.palette
             alpha_color = 0 if self.background_color is None else -1
             if texture.type == Texture2D.TEX_BITMAP:
                 self._layout.blit(
