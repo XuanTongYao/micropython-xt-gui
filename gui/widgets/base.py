@@ -257,7 +257,7 @@ class XFrameLayout(XLayout):
                     return
                 if func(KEY_MOUSE0) == ENTER:
                     return focus
-            elif key == KEY_UP or key == KEY_DOWN:
+            elif (key == KEY_UP or key == KEY_DOWN) and self._focus_list:
                 # 焦点切换
                 old_index = self._focus_index
                 len_ = len(self._focus_list)

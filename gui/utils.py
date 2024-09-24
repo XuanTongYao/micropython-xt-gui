@@ -655,3 +655,6 @@ class Texture2D:
                                     if col == self.w:
                                         break
                             yield self.__scanline_buf
+
+
+gc.collect()

@@ -2,6 +2,9 @@ from .base import *
 
 
 class XButton(XLayout):
+
+    unable_to_enter = True  # 控件不可进入
+
     def __init__(
         self, pos, wh=None, key_press=None, text="", color=WHITE, text_size=16
     ) -> None:
@@ -45,6 +48,8 @@ class XButton(XLayout):
 
 class XRadio(XLayout):
     """单选框"""
+
+    unable_to_enter = True  # 控件不可进入
 
     def __init__(self, pos, wh, size, text="", color=RED) -> None:
         """

@@ -129,26 +129,35 @@ class XT_GUI:
     #         self.CursorPosY = 0
 
     def add_widget(self, widget: XWidget):
-        self._layout.add_widget(widget)
+        self._top_layer_layout.add_widget(widget)
 
     # @timed_function
     def refrash_frame(self):
         """刷新帧，将帧数据写入显存"""
         self.display.update_frame()  # type: ignore
 
+    async def print_debug_info(self):
+        while True:
+            await asyncio.sleep(2)
+            print("Remaining memory:", gc.mem_free())
+            print("Current layer:", len(self.layer_stack))
+            if self.enter_widget_stack:
+                print("Current enter widget:", self.enter_widget_stack[-1])
+
     @timed_function
     def show_gui(self):
         """绘制并显示整个GUI"""
-        self._layout.draw_deliver()
+        self._top_layer_layout.draw_deliver()
         self.refrash_frame()
 
     async def __show_gui_loop(self):
+        if DEBUG:
+            asyncio.create_task(self.print_debug_info())
         while True:
-            self._layout.draw_deliver()
+            self._top_layer_layout.draw_deliver()
             self.refrash_frame()
             await asyncio.sleep(0)
             gc.collect()
-            print("Remaining memory:", gc.mem_free())
 
     def run(self, *key_handlers):
         """进入异步主循环，并启动key_handler的按键扫描循环"""
@@ -164,10 +173,8 @@ class XT_GUI:
             func = self.enter_widget_stack[-1]._key_input
             ret_val = None if func is None else func(key)
         else:
-            if self._layout._key_input is not None:
-                ret_val = self._layout._key_input(key)
-            else:
-                ret_val = None
+            func = self._bottom_layer_layout._key_input
+            ret_val = None if func is None else func(key)
         if ret_val == ESC and self.enter_widget_stack:
             self.esc_widget()
         elif isinstance(ret_val, XCtrl):
@@ -177,7 +184,43 @@ class XT_GUI:
         self.enter_widget_stack.append(widget)
 
     def esc_widget(self):
-        self.enter_widget_stack.pop()
+        xctrl = self.enter_widget_stack.pop()
+        if xctrl == self._top_layer_layout and self.layer_stack:
+            self.remove_layer()
+
+    def add_layer(
+        self,
+        *,
+        specified_layout: XLayout | None = None,
+        default_widgets: list[XWidget] | None = None,
+    ):
+        if specified_layout is not None and not hasattr(
+            specified_layout, "unable_to_enter"
+        ):
+            self._top_layer_layout = specified_layout
+            specified_layout._layout = GuiSingle.GUI_SINGLE.display  # type: ignore
+            specified_layout._create_draw_area(True)
+            specified_layout._update()
+        elif not hasattr(specified_layout, "unable_to_enter"):
+            self._top_layer_layout = XFrameLayout(
+                (0, 0), (self.width, self.height), self.loop_focus, top=True
+            )
+
+        self._top_layer_layout.enter = True
+        self.layer_stack.append(self._top_layer_layout)
+        self.enter_widget(self._top_layer_layout)
+        if default_widgets is not None:
+            for widget in default_widgets:
+                self._top_layer_layout.add_widget(widget)
+        self.draw_background()
+
+    def remove_layer(self):
+        self.layer_stack.pop()
+        if self.layer_stack:
+            self._top_layer_layout = self.layer_stack[-1]
+        else:
+            self._top_layer_layout = self._bottom_layer_layout
+        self.draw_background()
 
     def __init__(
         self, display: DisplayAPI, font, cursor_img_file: str, loop_focus=True
@@ -195,14 +238,18 @@ class XT_GUI:
         self.display = display
         self.width = display.width
         self.height = display.height
+        self.loop_focus = loop_focus
 
-        # 基本容器布局
-        self._layout = XFrameLayout(
+        # 基础渲染层容器布局
+        self._bottom_layer_layout = XFrameLayout(
             (0, 0), (self.width, self.height), loop_focus, top=True
         )
-        self._layout.enter = True
+        self._bottom_layer_layout.enter = True
+        self._top_layer_layout = self._bottom_layer_layout
         # 已进入的控件栈，按键事件会传递给顶层控件处理
         self.enter_widget_stack: list[XCtrl] = list()
+        # 绘制层栈，只绘制顶层布局的控件。用于进入页面覆盖显示。
+        self.layer_stack: list[XLayout] = list()
 
         # 字体初始化
         font_size = font.font_size
