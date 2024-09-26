@@ -1,6 +1,12 @@
+import gc
 from machine import Pin, SPI
+
+gc.collect()
 from driver import st7789
-from gui.utils import DisplayAPI
+from gui.utils.core import DisplayAPI
+import machine
+
+machine.freq(250000000)
 
 # 请根据自身硬件情况更改引脚和波特率等
 # 初始化显示屏
@@ -26,6 +32,8 @@ BTN_ENTER = Pin(6, Pin.IN, Pin.PULL_UP)
 # FJ08KN摇杆模拟按键
 from driver import fj08kn
 from machine import ADC
+
+gc.collect()
 
 joystick = fj08kn.FJ08K(ADC(Pin(29)), ADC(Pin(28)))
 BTN_UP = joystick.get_simulate_key(1)

@@ -1,4 +1,4 @@
-from math import ceil
+from math import ceil, floor
 import utime
 import framebuf
 import gc
@@ -42,6 +42,7 @@ class XT_GUI:
     """
 
     # @timed_function
+    # 240x240 屏幕 RP2040超频后单次运行耗时(典型值) 60 ms
     def draw_text(self, xtext: XText, overlap=True):
         if xtext._layout is None:
             return
@@ -51,9 +52,9 @@ class XT_GUI:
         w, h = xtext._wh
 
         initial_x = x
-        font = self.font if xtext._font_size is None else xtext._font_size
-        font_size = font.font_size
-        if font_size != self.font.font_size:
+        font = self.font
+        font_size = xtext._font_size
+        if font_size != font.font_size:
             return
         half_size = font_size >> 1
         # 每行最后一个字最大x坐标
@@ -66,14 +67,20 @@ class XT_GUI:
         half_word_frame = self._half_word_frame
         word_buf = self._word_buf
         # 计算要绘制的起始行和结束行
-        begin_line = ceil((-y) / font_size) if y < 0 else 0
+        # 起始行在上页显示一半时有bug，下页不会全部显示
+        # 改成floor还是有bug，积累误差
+        # 现在好像没有bug了
+        begin_line = floor((-y) / font_size) if y < 0 else 0
         end_line = min(ceil((h - y) / font_size), len(xtext._lines_index) - 1)
         if begin_line >= len(xtext._lines_index):
             return
         begin_index = xtext._lines_index[begin_line]
         end_index = xtext._lines_index[end_line]
         # 开始绘制
-        y = max(y, 0)
+        if y < 0:
+            y = -((-y) % font_size)
+
+        # y = max(y, 0)
         for char in xtext._context[begin_index:end_index]:
             # 对特殊字符的处理优化
             if char == "\n":
@@ -291,3 +298,6 @@ class XT_GUI:
             return gui
         else:
             return GuiSingle.GUI_SINGLE
+
+
+gc.collect()
