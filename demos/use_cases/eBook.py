@@ -14,7 +14,7 @@ import os
 # 创建XT_GUI实例
 GUI = XT_GUI(
     setup_hardware.display,
-    ufont.BMFont("./resource/fonts/for_demo/16x16_text_demo.bmf", load_in_mem=True),
+    ufont.BMFont("./resource/fonts/for_demo/16x16_text_demo.bmf", load_into_mem=True),
     cursor_img_file="./resource/Img/Cursor21x32.pbm",
     loop_focus=True,
 )
@@ -30,9 +30,9 @@ GUI.add_widget(file_list)
 def open_book(filename):
     global textview, text
     print("打开文件: " + filename)
+    GUI.add_layer(specified_layout=textview)
     with open("./books/" + filename, "r", encoding="UTF-8") as f:
         textview.set_text(f.read())
-    GUI.add_layer(specified_layout=textview)
 
 
 # 遍历books目录
