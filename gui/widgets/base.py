@@ -297,6 +297,8 @@ class XText(XWidget):
         self._autowrap = autowrap
         self._font_size = font_size if font_size is not None else GuiSingle.GUI_SINGLE.font.font_size  # type: ignore
         self._lines_index: list[int] = []
+        # 多行滚动条位置，起始为0，向下为正，建议只在翻页容器使用
+        self._scrollbar_pos = 0
 
     def draw(self) -> None:
         if GuiSingle.GUI_SINGLE is not None:
@@ -309,6 +311,7 @@ class XText(XWidget):
         x, y = self._pos
         w, h = self._wh
         if x >= w or y >= h:
+            print("超出容器，不绘制", x, y, w, h)
             return
 
         # 预处理文本，计算出每行文本的起始索引和y坐标
@@ -336,6 +339,7 @@ class XText(XWidget):
 
             x += half_size if ord(char) <= 0x7F else font_size
         _lines_index.append(len(self._context))
+        print("更新，行索引", _lines_index)
 
 
 gc.collect()

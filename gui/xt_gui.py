@@ -42,14 +42,21 @@ class XT_GUI:
     """
 
     # @timed_function
-    # 240x240 屏幕 RP2040超频后单次运行耗时(典型值) 60 ms
+    # 240x240 屏幕 RP2040超频后单次运行耗时(典型值) 62 ms，迭代耗时21.3ms，绘制耗时39.7ms
+    # 迭代性能需要再提高，寻找一种可以代替string的更高性能方案
+    # 加上micropython.native后耗时变成60ms，优化甚微
+    # 属于是python自身的性能问题，目前无解
+    # 可以尝试利用全角字符缓冲区的特性，将两个半角字符的数据存入其中，同时绘制，减少绘制次数
+    # micropython的bytearray不支持自定义步长访问，在全角字符缓冲区存入两个半角字符的数据相当困难
     def draw_text(self, xtext: XText, overlap=True):
         if xtext._layout is None:
             return
         display = xtext._layout
         autowarp = xtext._autowrap
         x, y = xtext._pos
+        scrollbar_pos = xtext._scrollbar_pos
         w, h = xtext._wh
+        alpha = 0 if overlap else -1
 
         initial_x = x
         font = self.font
@@ -67,20 +74,20 @@ class XT_GUI:
         half_word_frame = self._half_word_frame
         word_buf = self._word_buf
         # 计算要绘制的起始行和结束行
-        # 起始行在上页显示一半时有bug，下页不会全部显示
-        # 改成floor还是有bug，积累误差
-        # 现在好像没有bug了
-        begin_line = floor((-y) / font_size) if y < 0 else 0
-        end_line = min(ceil((h - y) / font_size), len(xtext._lines_index) - 1)
+        begin_line = floor((max(-y, 0) + scrollbar_pos) / font_size)
+        end_line = min(
+            ceil((h + max(-y, 0) + scrollbar_pos) / font_size),
+            len(xtext._lines_index) - 1,
+        )
         if begin_line >= len(xtext._lines_index):
             return
         begin_index = xtext._lines_index[begin_line]
         end_index = xtext._lines_index[end_line]
         # 开始绘制
+        # 有很多bug
         if y < 0:
             y = -((-y) % font_size)
 
-        # y = max(y, 0)
         for char in xtext._context[begin_index:end_index]:
             # 对特殊字符的处理优化
             if char == "\n":
@@ -105,10 +112,7 @@ class XT_GUI:
 
             tmp = half_word_frame if ord(char) <= 0x7F else word_frame
             font.fast_get_bitmap(char, word_buf)
-            if overlap:
-                display.blit(tmp, x, y, 0, palette)
-            else:
-                display.blit(tmp, x, y, -1, palette)
+            display.blit(tmp, x, y, alpha, palette)
             # X坐标偏移一个字
             # 半角字符只绘制一半的像素量，速度会更快
             x += half_size if ord(char) <= 0x7F else font_size
@@ -258,7 +262,7 @@ class XT_GUI:
         # 绘制层栈，只绘制顶层布局的控件。用于进入页面覆盖显示。
         self.layer_stack: list[XLayout] = list()
 
-        # 字体初始化
+        # 字体相关初始化
         font_size = font.font_size
         # 字体数据缓存
         self._word_buf = bytearray(ceil(font_size * font_size / 8))
