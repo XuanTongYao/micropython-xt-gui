@@ -37,8 +37,6 @@ class XT_GUI:
     由于FrameBuffer的字节序固定为LE,传输到显示器的颜色信息可能有错误.
     目前光标影响性能，已经禁用
     为了高性能，除了实现相关功能，函数都没有进行严格类型检查
-    ShowGUI函数会检查部分类型的遮蔽情况,决定是否重绘
-    如果出现图像异常可以在ShowGUI之前调用DrawBackground强制重绘背景
     """
 
     # @timed_function

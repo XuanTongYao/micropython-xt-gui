@@ -41,17 +41,23 @@ class KeyHandler:
         self.__hold_sleep_task = asyncio.create_task(self.__hold_check(HOLD_MS / 1000))
         self.__scan_loop_task = asyncio.create_task(self.__do_scan_loop())
 
-    def set_press_func(self, func, arg=()) -> None:
+    def set_press_func(self, func, *args) -> None:
+        if len(args) == 1:
+            args = args[0]
         self.__press_callback = func
-        self.__press_arg = arg
+        self.__press_arg = args
 
-    def set_release_func(self, func, arg=()) -> None:
+    def set_release_func(self, func, *args) -> None:
+        if len(args) == 1:
+            args = args[0]
         self.__release_callback = func
-        self.__release_arg = arg
+        self.__release_arg = args
 
-    def set_hold_func(self, func, arg=()) -> None:
+    def set_hold_func(self, func, *args) -> None:
+        if len(args) == 1:
+            args = args[0]
         self.__hold_callback = func
-        self.__hold_arg = arg
+        self.__hold_arg = args
 
     async def __do_scan_loop(self):
         while True:
