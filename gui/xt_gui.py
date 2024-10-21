@@ -26,17 +26,8 @@ def timed_function(f, *args, **kwargs):
 
 class XT_GUI:
     """XT_GUI类
-
-    类会在底层创建一个XLayout基础布局容器，焦点切换和控件添加都是在
-    该容器上完成的
-
-
-    所有的Draw绘制函数都是对帧缓存进行的操作.
-    如果没有写入到GDDRAM则不会显示到屏幕上.
     所有颜色都是RGB565.
     由于FrameBuffer的字节序固定为LE,传输到显示器的颜色信息可能有错误.
-    目前光标影响性能，已经禁用
-    为了高性能，除了实现相关功能，函数都没有进行严格类型检查
     """
 
     # @timed_function
@@ -47,9 +38,7 @@ class XT_GUI:
     # 可以尝试利用全角字符缓冲区的特性，将两个半角字符的数据存入其中，同时绘制，减少绘制次数
     # micropython的bytearray不支持自定义步长访问，在全角字符缓冲区存入两个半角字符的数据相当困难
     def draw_text(self, xtext: XText, overlap=True):
-        if xtext._layout is None:
-            return
-        display = xtext._layout
+        draw_area = xtext._parent._draw_area
         autowarp = xtext._autowrap
         x, y = xtext._pos
         scrollbar_pos = xtext._scrollbar_pos
@@ -110,7 +99,7 @@ class XT_GUI:
 
             tmp = half_word_frame if ord(char) <= 0x7F else word_frame
             font.fast_get_bitmap(char, word_buf)
-            display.blit(tmp, x, y, alpha, palette)
+            draw_area.blit(tmp, x, y, alpha, palette)
             # X坐标偏移一个字
             # 半角字符只绘制一半的像素量，速度会更快
             x += half_size if ord(char) <= 0x7F else font_size
@@ -118,32 +107,13 @@ class XT_GUI:
     def draw_background(self):
         self.display.fill(0)
 
-    # def DrawCursor(self):
-    #     Palette = self.PaCache
-    #     Palette.pixel(1, 0, self.CursorC)
-    #     self.Display.blit(
-    #         self.CursorFrame, self.CursorPosX, self.CursorPosY, 0, Palette
-    #     )
-
-    # def cursor_move(self, base_px: int, axis_x_zoom, axis_y_zoom):
-    #     self.CursorPosX += int(base_px * axis_x_zoom)
-    #     self.CursorPosY += int(base_px * axis_y_zoom)
-    #     if self.CursorPosX > self.width:
-    #         self.CursorPosX = self.width
-    #     elif self.CursorPosX < 0:
-    #         self.CursorPosX = 0
-    #     if self.CursorPosY > self.height:
-    #         self.CursorPosY = self.height
-    #     elif self.CursorPosY < 0:
-    #         self.CursorPosY = 0
-
     def add_widget(self, widget: XWidget):
         self._top_layer_layout.add_widget(widget)
 
     # @timed_function
     def refrash_frame(self):
         """刷新帧，将帧数据写入显存"""
-        self.display.update_frame()  # type: ignore
+        self.display.update_frame()
 
     async def print_debug_info(self):
         while True:
@@ -156,14 +126,14 @@ class XT_GUI:
     @timed_function
     def show_gui(self):
         """绘制并显示整个GUI"""
-        self._top_layer_layout.draw_deliver()
+        self._top_layer_layout._draw_deliver()
         self.refrash_frame()
 
     async def __show_gui_loop(self):
         if DEBUG:
             asyncio.create_task(self.print_debug_info())
         while True:
-            self._top_layer_layout.draw_deliver()
+            self._top_layer_layout._draw_deliver()
             self.refrash_frame()
             await asyncio.sleep(0)
             gc.collect()
@@ -199,21 +169,19 @@ class XT_GUI:
 
     def add_layer(
         self,
-        *,
         specified_layout: XLayout | None = None,
         default_widgets: list[XWidget] | None = None,
     ):
-        if specified_layout is not None and not hasattr(
-            specified_layout, "unable_to_enter"
-        ):
-            self._top_layer_layout = specified_layout
-            specified_layout._layout = GuiSingle.GUI_SINGLE.display  # type: ignore
-            specified_layout._create_draw_area(True)
-            specified_layout._update()
-        elif not hasattr(specified_layout, "unable_to_enter"):
+        if specified_layout is None:
             self._top_layer_layout = XFrameLayout(
-                (0, 0), (self.width, self.height), self.loop_focus, top=True
+                (0, 0), (self.width, self.height), self.loop_focus
             )
+        elif not hasattr(specified_layout, "unable_to_enter"):
+            self._top_layer_layout = specified_layout
+            specified_layout.set_parent(self.display)  # type: ignore
+        else:
+            print("Invalid layout")
+            return
 
         self._top_layer_layout.enter = True
         self.layer_stack.append(self._top_layer_layout)
@@ -230,10 +198,9 @@ class XT_GUI:
         else:
             self._top_layer_layout = self._bottom_layer_layout
         self.draw_background()
+        self._top_layer_layout._event_receiver(CLEAR_DRAW_AREA_EVENT)
 
-    def __init__(
-        self, display: DisplayAPI, font, cursor_img_file: str, loop_focus=True
-    ) -> None:
+    def __init__(self, display: DisplayAPI, font, loop_focus=True) -> None:
         """初始化
         Args:
             Font: 等宽字体类
@@ -251,8 +218,9 @@ class XT_GUI:
 
         # 基础渲染层容器布局
         self._bottom_layer_layout = XFrameLayout(
-            (0, 0), (self.width, self.height), loop_focus, top=True
+            (0, 0), (self.width, self.height), loop_focus
         )
+        self._bottom_layer_layout.set_parent(self.display)  # type: ignore
         self._bottom_layer_layout.enter = True
         self._top_layer_layout = self._bottom_layer_layout
         # 已进入的控件栈，按键事件会传递给顶层控件处理
@@ -275,22 +243,6 @@ class XT_GUI:
         # 调色板缓存
         self.pa_cache = framebuf.FrameBuffer(bytearray(4), 2, 1, framebuf.RGB565)
 
-        # # 光标指针初始化
-        # with open(CursorImgFile, "rb") as CursorImg:
-        #     Head = CursorImg.readline()
-        #     if Head == b"P4\x0A":
-        #         self.CursorW = Width = int(CursorImg.readline().decode("ASCII"))
-        #         self.CursorH = Height = int(CursorImg.readline().decode("ASCII"))
-        #         Len = ceil(Width / 8) * Height
-        #         CursorImgRaw = bytearray(CursorImg.read(Len))
-        #         self.CursorFrame = framebuf.FrameBuffer(
-        #             CursorImgRaw, Width, Height, framebuf.MONO_HLSB
-        #         )
-        #         # 指针颜色
-        #         self.CursorC = WHITE
-        #         # 指针当前位置
-        #         self.CursorPosX = 0
-        #         self.CursorPosY = 0
         gc.collect()
 
     def __new__(cls, *args, **kwargs) -> "XT_GUI":
@@ -303,3 +255,41 @@ class XT_GUI:
 
 
 gc.collect()
+
+
+# Deprecated
+# # 光标指针初始化
+# with open(CursorImgFile, "rb") as CursorImg:
+#     Head = CursorImg.readline()
+#     if Head == b"P4\x0A":
+#         self.CursorW = Width = int(CursorImg.readline().decode("ASCII"))
+#         self.CursorH = Height = int(CursorImg.readline().decode("ASCII"))
+#         Len = ceil(Width / 8) * Height
+#         CursorImgRaw = bytearray(CursorImg.read(Len))
+#         self.CursorFrame = framebuf.FrameBuffer(
+#             CursorImgRaw, Width, Height, framebuf.MONO_HLSB
+#         )
+#         # 指针颜色
+#         self.CursorC = WHITE
+#         # 指针当前位置
+#         self.CursorPosX = 0
+#         self.CursorPosY = 0
+
+# def DrawCursor(self):
+#     Palette = self.PaCache
+#     Palette.pixel(1, 0, self.CursorC)
+#     self.Display.blit(
+#         self.CursorFrame, self.CursorPosX, self.CursorPosY, 0, Palette
+#     )
+
+# def cursor_move(self, base_px: int, axis_x_zoom, axis_y_zoom):
+#     self.CursorPosX += int(base_px * axis_x_zoom)
+#     self.CursorPosY += int(base_px * axis_y_zoom)
+#     if self.CursorPosX > self.width:
+#         self.CursorPosX = self.width
+#     elif self.CursorPosX < 0:
+#         self.CursorPosX = 0
+#     if self.CursorPosY > self.height:
+#         self.CursorPosY = self.height
+#     elif self.CursorPosY < 0:
+#         self.CursorPosY = 0

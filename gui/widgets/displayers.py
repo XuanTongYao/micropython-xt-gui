@@ -24,21 +24,19 @@ class XPlainTextView(XLayout):
 
     def set_text(self, text):
         self._page = 1
-        self.__text._context = text
-        print("设置文本更新")
-        self.__text._update()
+        self.__text.set_context(text)
+        # print("设置文本更新") # Debug
         self._total_pages = ceil(
             len(self.__text._lines_index) * self.__text._font_size / self._page_height
         )
-        print(
-            self.__text._lines_index,
-            "行数",
-            len(self.__text._lines_index),
-            "字体大小",
-            self.__text._font_size,
-        )
-        self.__page_show._context = f"1/{self._total_pages}"
-        self.__page_show._update()
+        # print(
+        #     self.__text._lines_index,
+        #     "行数",
+        #     len(self.__text._lines_index),
+        #     "字体大小",
+        #     self.__text._font_size,
+        # )  # Debug
+        self.__page_show.set_context(f"1/{self._total_pages}")
         self.__text._scrollbar_pos = 0
 
     def _key_response(self, key):
@@ -48,13 +46,16 @@ class XPlainTextView(XLayout):
             if self._page < self._total_pages:
                 self._draw_area.fill(0)
 
-                self.__text._scrollbar_pos += self._page_height
+                self.__text._set_scrollbar_pos(
+                    self.__text._scrollbar_pos + self._page_height
+                )
                 self._page += 1
-                print("下翻页")
+                # print("下翻页")  # Debug
         if key == KEY_UP:
             if self._page > 1:
                 self._draw_area.fill(0)
-                self.__text._scrollbar_pos -= self._page_height
+                self.__text._set_scrollbar_pos(
+                    self.__text._scrollbar_pos - self._page_height
+                )
                 self._page -= 1
-        self.__page_show._context = f"{self._page}/{self._total_pages}"
-        self.__page_show._update()
+        self.__page_show.set_context(f"{self._page}/{self._total_pages}")

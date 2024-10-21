@@ -108,7 +108,7 @@ class ST7789:
 
     def __init__(
         self,
-        spi: SPI,
+        spi,
         width,
         height,
         reset,
@@ -139,8 +139,6 @@ class ST7789:
 
         self.xstart = xstart
         self.ystart = ystart
-
-        self.spi.write(bytes(0xFF))  #
 
         self.hard_reset()
         self.soft_reset()

@@ -1,4 +1,4 @@
-# 按键代码定义
+# 按键键值定义
 KEY_ESCAPE = const(0)
 KEY_MOUSE0 = const(1)
 KEY_MOUSE1 = const(2)

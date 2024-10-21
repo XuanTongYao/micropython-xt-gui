@@ -1,4 +1,9 @@
 .vscode
 .micropico
+*.pyc
 benchmark.py
+pc.py
+mytest.py
 */test.*
+*.exe
+*.cpp

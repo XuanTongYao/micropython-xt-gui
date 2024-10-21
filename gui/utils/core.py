@@ -4,6 +4,7 @@ from math import ceil
 import io
 from .colors import *
 from .key import *
+from .event import *
 
 
 # 图形界面单例
@@ -93,6 +94,25 @@ class DisplayAPI(framebuf.FrameBuffer):
             return FrameBufferOffset(
                 tmp[byte_offset:], w, h, self.color_mode, width, 8 - (x % 8)
             )
+
+    # 实现类XLayout透明化
+    @property
+    def _layout_wh(self):
+        return self.width, self.height
+
+    @property
+    def _layout_pos(self):
+        return (0, 0)
+
+    @property
+    def _draw_area(self):
+        return self
+
+    def get_absolute_pos(self):
+        return (0, 0)
+
+    def _event_receiver(self, _):
+        pass
 
 
 # bytes.split(None)的生成器版本

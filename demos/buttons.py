@@ -9,11 +9,15 @@ from gui.widgets.buttons import XButton, XCheckbox, XRadio
 GUI = XT_GUI(
     setup_hardware.display,
     ufont.BMFont("./resource/fonts/for_demo/16x16_text_demo.bmf", load_into_mem=True),
-    cursor_img_file="./resource/Img/Cursor21x32.pbm",
     loop_focus=True,
 )
 
-hello_button = XButton((0, 0), text="你好")
+
+def print_hello():
+    print("Hello world!")
+
+
+hello_button = XButton((0, 0), text="你好", key_press=print_hello)
 hello_checkbox = XCheckbox((38, 0), (49, 16), 16, text="你好")
 hello_radio = XRadio((87, 0), (49, 16), 16, text="你好")
 

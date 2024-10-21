@@ -48,10 +48,7 @@ class XImage(XWidget):
         else:
             self.palette_used = False
 
-    def draw(self) -> None:
-        if self._layout is None:
-            return
-
+    def _draw(self) -> None:
         # 如果纹理是以bitmap方式加载的，可以直接绘制
         # 如果纹理是以流式方式或非bitmap加载的，则需要使用迭代器逐行绘制
         x, y = self._pos
@@ -62,17 +59,17 @@ class XImage(XWidget):
             palette = self.palette
             alpha_color = 0 if self.background_color is None else -1
             if texture.type == Texture2D.TEX_BITMAP:
-                self._layout.blit(
+                self._parent._draw_area.blit(
                     texture.bitmap_frame, *self._pos, alpha_color, palette
                 )
             else:
                 for row_frame in texture:
-                    self._layout.blit(row_frame, x, y, alpha_color, palette)
+                    self._parent._draw_area.blit(row_frame, x, y, alpha_color, palette)
                     y += 1
         else:
             if texture.type == Texture2D.TEX_BITMAP:
-                self._layout.blit(texture.bitmap_frame, *self._pos)
+                self._parent._draw_area.blit(texture.bitmap_frame, *self._pos)
             else:
                 for row_frame in texture:
-                    self._layout.blit(row_frame, x, y)
+                    self._parent._draw_area.blit(row_frame, x, y)
                     y += 1
