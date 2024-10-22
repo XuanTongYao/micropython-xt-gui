@@ -1,6 +1,8 @@
 .vscode
 .micropico
 *.pyc
+/snapshots/*
+/snapshots_png/*.png
 benchmark.py
 pc.py
 mytest.py

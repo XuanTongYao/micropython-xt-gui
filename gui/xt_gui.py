@@ -3,6 +3,7 @@ import utime
 import framebuf
 import gc
 import asyncio
+import os
 from .widgets.base import *
 
 DEBUG = True
@@ -199,6 +200,33 @@ class XT_GUI:
             self._top_layer_layout = self._bottom_layer_layout
         self.draw_background()
         self._top_layer_layout._event_receiver(CLEAR_DRAW_AREA_EVENT)
+
+    def snapshot(self, _):
+        print("截图")
+        names = os.listdir()
+        if "snapshots" in names:
+            if os.stat("snapshots")[0] & 0x4000 != 0:
+                self._save_snapshot("snapshots")
+            else:
+                print("snapshots is not a directory")
+        else:
+            os.mkdir("snapshots")
+            self._save_snapshot("snapshots")
+        print("截图完成")
+
+    def _save_snapshot(self, dir: str):
+        files = os.listdir(dir)
+        if not files:
+            with open(f"{dir}/snapshot_0000", "wb") as sn:
+                sn.write(self.display.buffer)
+            return
+        files.sort()
+        next_index = int(files[-1][9:]) + 1
+        if next_index > 9999:
+            print("snapshot num overflow")
+        else:
+            with open(f"{dir}/snapshot_{next_index:04d}", "wb") as sn:
+                sn.write(self.display.buffer)
 
     def __init__(self, display: DisplayAPI, font, loop_focus=True) -> None:
         """初始化
