@@ -2,6 +2,8 @@ from ..utils.core import *
 from framebuf import FrameBuffer
 
 FOCUSED_COLOR = RED
+BORDER = const(2)
+D_BORDER = const(2 * BORDER)
 
 
 class XWidget:
@@ -23,7 +25,7 @@ class XWidget:
         self._wh = wh
         self._color = color
         self._parent: XLayout = None  # type: ignore
-        self._redraw_flag = True
+        self._redraw_flag: bool = True
 
     # 公共方法
     def set_parent(self, parent: "XLayout"):
@@ -136,9 +138,10 @@ class XCtrl(XWidget):
         """
         super().__init__(pos, wh, color)
         # 光标或焦点是否到达此控件
-        self._focused = False
+        # TODO 进入之后是否应该清除焦点？XFrameLayout会自己清除。其他类是否应该由父控件清除？
+        self._focused: bool = False
         # 是否进入到控件
-        self.enter = False
+        self._enter: bool = False
         self._key_input = key_input
 
     @property
@@ -167,7 +170,7 @@ class XLayout(XCtrl):
         self._childen: list[XWidget] = []
         self._cleared = True
         # 容器宽高
-        self._layout_wh = (0, 0)
+        self._layout_wh: tuple[int, int] = (0, 0)
         # 容器相对坐标
         self._layout_pos = (0, 0)
 
@@ -296,7 +299,6 @@ class XLayout(XCtrl):
         widget.set_parent(self)
 
     def _draw(self):
-        self._redraw_flag = False
         pass
 
     def _draw_deliver(self):
@@ -342,19 +344,18 @@ class XFrameLayout(XLayout):
         super().__init__(pos, wh, color, self._key_response)
         # 焦点控件
         self._focus_list: list[XCtrl] = []
-        self._focus_index = -1
+        self._focus_index = 0
         self._loop_focus = loop_focus
         self._frame = frame
 
     def _calc_draw_area(self) -> tuple[tuple[int, int], tuple[int, int]]:
         w, h = self._wh
         if self._frame:
-            return (2, 2), (w - 4, h - 4)
+            return (BORDER, BORDER), (w - D_BORDER, h - D_BORDER)
         else:
             return (0, 0), (w, h)
 
     def _draw(self):
-        self._redraw_flag = False
         if self._frame:
             x, y = self._pos
             w, h = self._wh
@@ -368,13 +369,10 @@ class XFrameLayout(XLayout):
         """添加控件"""
         super()._add_widget(widget)
         # 调节焦点
-        # TODO 这里有点问题
         if isinstance(widget, XCtrl):
             self._focus_list.append(widget)
-            if self._focus_index == -1:
-                self._focus_index = 0
-                if self.enter:
-                    self._focus_list[self._focus_index].focused = True
+            if self._enter and len(self._focus_list) == 1:
+                self._focus_list[self._focus_index].focused = True
 
     def _key_response(self, key: int):
         """处理按键响应
@@ -383,9 +381,7 @@ class XFrameLayout(XLayout):
             返回一个XCtrl对象，表示进入到该对象
             返回一个ESC，表示退出当前进入的控件
         """
-        # TODO 焦点切换的逻辑需要改一下
-        # TODO _focus_index应该保证任意时刻有效
-        if self.enter:
+        if self._enter:
             if key == KEY_MOUSE0 and self._focus_list:
                 focus = self._focus_list[self._focus_index]
                 func = focus._key_input
@@ -398,27 +394,32 @@ class XFrameLayout(XLayout):
                 old_index = self._focus_index
                 len_ = len(self._focus_list)
                 # 判断循环焦点模式
-                modulo = len_ if self._loop_focus else 999999
                 if key == KEY_UP:
-                    self._focus_index = (self._focus_index - 1 + modulo) % modulo
+                    self._focus_index = (
+                        (old_index - 1 + len_) % len_
+                        if self._loop_focus
+                        else max(old_index - 1, 0)
+                    )
                 else:
-                    self._focus_index = (self._focus_index + 1) % modulo
+                    self._focus_index = (
+                        (old_index + 1) % len_
+                        if self._loop_focus
+                        else min(old_index + 1, len_ - 1)
+                    )
 
-                if 0 <= self._focus_index < len_:
+                if self._focus_index != old_index:
                     self._focus_list[old_index].focused = False
                     self._focus_list[self._focus_index].focused = True
-                else:
-                    self._focus_index = old_index
             elif key == KEY_ESCAPE:
-                self.enter = False
-                self._focused = True
-                if 0 <= self._focus_index < len(self._focus_list):
+                self._enter = False
+                self.focused = True
+                if self._focus_list:
                     self._focus_list[self._focus_index].focused = False
                 return ESC
         elif key == KEY_MOUSE0:
-            self.enter = True
-            self._focused = False
-            if 0 <= self._focus_index < len(self._focus_list):
+            self._enter = True
+            self.focused = False
+            if self._focus_list:
                 self._focus_list[self._focus_index].focused = True
             return ENTER
 
@@ -445,7 +446,6 @@ class XText(XWidget):
         self._text_pre_processing()
 
     def _draw(self):
-        self._redraw_flag = False
         if GuiSingle.GUI_SINGLE is not None:
             GuiSingle.GUI_SINGLE.draw_text(self)
 

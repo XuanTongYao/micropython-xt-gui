@@ -164,6 +164,7 @@ class XT_GUI:
         self.enter_widget_stack.append(widget)
 
     def esc_widget(self):
+        # TODO 退出后需要帮控件设置_enter和focused的值吗？
         xctrl = self.enter_widget_stack.pop()
         if xctrl == self._top_layer_layout and self.layer_stack:
             self.remove_layer()
@@ -184,7 +185,11 @@ class XT_GUI:
             print("Invalid layout")
             return
 
-        self._top_layer_layout.enter = True
+        if isinstance(self._top_layer_layout, XFrameLayout):
+            self._top_layer_layout._key_response(KEY_MOUSE0)
+        else:
+            self._top_layer_layout._enter = True
+
         self.layer_stack.append(self._top_layer_layout)
         self.enter_widget(self._top_layer_layout)
         if default_widgets is not None:
@@ -249,7 +254,7 @@ class XT_GUI:
             (0, 0), (self.width, self.height), loop_focus
         )
         self._bottom_layer_layout.set_parent(self.display)  # type: ignore
-        self._bottom_layer_layout.enter = True
+        self._bottom_layer_layout._enter = True
         self._top_layer_layout = self._bottom_layer_layout
         # 已进入的控件栈，按键事件会传递给顶层控件处理
         self.enter_widget_stack: list[XCtrl] = list()

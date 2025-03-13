@@ -96,8 +96,8 @@ class XGridBox(XFrameLayout):
     """网格盒子视图。控件网格布局"""
 
     # 很显然添加控件需要输入行列参数
-    # 但是为了保持add_widget的基本行为，我规定了不能重写
-    # 正在像一种更好的解决方法
+    # 但是为了保持add_widget的基本行为，已经规定了不能重写
+    # 正在想一种更好的解决方法
 
     def __init__(self, pos, wh, color=WHITE, average=True) -> None:
         """

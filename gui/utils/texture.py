@@ -127,7 +127,7 @@ class Texture2D:
             for scanline_data in self.__decoder_png():
                 yield framebuf.FrameBuffer(scanline_data, self.w, 1, color_mode)
 
-    # 头文件解析的具体实现
+    # 文件头解析的具体实现
     def __parse_header_pbm(self, img: io.BufferedReader | io.BytesIO) -> int | None:
         img.seek(0)
         if img.read(2) != b"P4":

@@ -26,8 +26,8 @@ BTN_ESCAPE = Pin(5, Pin.IN)
 BTN_ENTER = Pin(6, Pin.IN, Pin.PULL_UP)
 # # 下键
 # BTN_DOWN = Pin(7, Pin.IN, Pin.PULL_UP)
-# # 上键
-# BTN_UP = Pin(8, Pin.IN, Pin.PULL_UP)
+# 截图键用于调试
+BTN_PRTSC = Pin(8, Pin.IN, Pin.PULL_UP)  # Debug
 
 # FJ08KN摇杆模拟按键
 from driver import fj08kn

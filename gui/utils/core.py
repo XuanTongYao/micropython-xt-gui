@@ -56,7 +56,7 @@ class DisplayAPI(framebuf.FrameBuffer):
         self.display.write_gddram(self.buffer)
 
     def framebuf_slice(self, x, y, w, h):
-        """帧缓存切片，使用memoryview实现，不会占用额外空间。
+        """帧缓冲切片，使用memoryview实现，不会占用额外空间。
 
         Args:
             x: x坐标
@@ -65,7 +65,7 @@ class DisplayAPI(framebuf.FrameBuffer):
             h: 像素高
 
         Returns:
-            对应矩形的帧缓存对象。
+            对应矩形的帧缓冲对象。
         """
         width = self.width
         color_mode = self.color_mode
