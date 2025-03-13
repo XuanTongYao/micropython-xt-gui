@@ -19,20 +19,25 @@ HOLD_INTERVAL_MS = const(200)
 # 单个物理按键处理
 class KeyHandler:
 
-    def __init__(self, key, active=0) -> None:
+    def __init__(
+        self, key, active=0, press=(None,), release=(None,), hold=(None,)
+    ) -> None:
         """
         Args:
             key: 按键对象，可以是Pin或其他，必须实现__call__方法用于获取按键值.
             active: 按键按下有效值. 默认0表示按下.
+            press: 按下回调
+            release: 松开回调
+            hold: 长按周期性回调
         """
         if not callable(key):
             raise TypeError("key must be callable to get value")
         self.key = key
         self.active = active
 
-        self.set_press_func(None)
-        self.set_release_func(None)
-        self.set_hold_func(None)
+        self.set_press_func(*press)
+        self.set_release_func(*release)
+        self.set_hold_func(*hold)
 
         self.__fsm = _RELEASED
         self.__reach_hold = False

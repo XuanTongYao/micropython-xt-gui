@@ -111,6 +111,9 @@ class XT_GUI:
     def add_widget(self, widget: XWidget):
         self._top_layer_layout.add_widget(widget)
 
+    def add_widgets(self, widgets: list[XWidget] | tuple[XWidget, ...]):
+        self._top_layer_layout.add_widgets(widgets)
+
     # @timed_function
     def refrash_frame(self):
         """刷新帧，将帧数据写入显存"""
@@ -172,7 +175,7 @@ class XT_GUI:
     def add_layer(
         self,
         specified_layout: XLayout | None = None,
-        default_widgets: list[XWidget] | None = None,
+        children: list[XWidget] | tuple[XWidget, ...] | None = None,
     ):
         if specified_layout is None:
             self._top_layer_layout = XFrameLayout(
@@ -192,8 +195,8 @@ class XT_GUI:
 
         self.layer_stack.append(self._top_layer_layout)
         self.enter_widget(self._top_layer_layout)
-        if default_widgets is not None:
-            for widget in default_widgets:
+        if children is not None:
+            for widget in children:
                 self._top_layer_layout.add_widget(widget)
         self.draw_background()
 

@@ -15,14 +15,10 @@ GUI = XT_GUI(
     loop_focus=True,
 )
 
-key_esc = KeyHandler(setup_hardware.BTN_ESCAPE)
-key_esc.set_press_func(GUI.key_response, KEY_ESCAPE)
-key_enter = KeyHandler(setup_hardware.BTN_ENTER)
-key_enter.set_press_func(GUI.key_response, KEY_MOUSE0)
-key_next = KeyHandler(setup_hardware.BTN_DOWN)
-key_next.set_press_func(GUI.key_response, KEY_DOWN)
-key_prev = KeyHandler(setup_hardware.BTN_UP)
-key_prev.set_press_func(GUI.key_response, KEY_UP)
+key_esc = KeyHandler(setup_hardware.BTN_ESCAPE, press=(GUI.key_response, KEY_ESCAPE))
+key_enter = KeyHandler(setup_hardware.BTN_ENTER, press=(GUI.key_response, KEY_MOUSE0))
+key_next = KeyHandler(setup_hardware.BTN_DOWN, press=(GUI.key_response, KEY_DOWN))
+key_prev = KeyHandler(setup_hardware.BTN_UP, press=(GUI.key_response, KEY_UP))
 
 
 main = XListView((0, 0), (240, 240))
@@ -33,38 +29,35 @@ GUI.add_widget(main)
 
 # 主菜单
 main.add_widget(
-    XButton(
-        (0, 0), text="Weather", key_press=lambda: print("Weather. Just an example.")
-    )
+    XButton((0, 0), text="Weather", callback=lambda: print("Weather. Just an example."))
 )
 main.add_widget(
-    XButton((0, 0), text="Music", key_press=lambda: print("Music. Just an example."))
+    XButton((0, 0), text="Music", callback=lambda: print("Music. Just an example."))
 )
 main.add_widget(
     XButton(
         (0, 0),
         text="System setup",
-        key_press=lambda: GUI.add_layer(specified_layout=sys_setup_menu),
+        callback=lambda: GUI.add_layer(specified_layout=sys_setup_menu),
     )
 )
 
 # 系统设置菜单
+sys_setup_menu.add_widget(XButton((0, 0), text="Time", callback=lambda: print("Time.")))
 sys_setup_menu.add_widget(
-    XButton((0, 0), text="Time", key_press=lambda: print("Time."))
-)
-sys_setup_menu.add_widget(
-    XButton((0, 0), text="Brightness", key_press=lambda: print("Brightness."))
+    XButton((0, 0), text="Brightness", callback=lambda: print("Brightness."))
 )
 sys_setup_menu.add_widget(
     XButton(
         (0, 0),
         text="Language",
-        key_press=lambda: GUI.add_layer(specified_layout=language_menu),
+        callback=lambda: GUI.add_layer(specified_layout=language_menu),
     )
 )
 
 # 语言菜单
 for i in ["English", "Chinese", "Japanese"]:
-    language_menu.add_widget(XButton((0, 0), text=i, key_press=lambda x=i: print(x)))
+    language_menu.add_widget(XButton((0, 0), text=i, callback=lambda x=i: print(x)))
 
-GUI.run(key_esc, key_enter, key_next, key_prev)
+key_prtsc = KeyHandler(setup_hardware.BTN_PRTSC, press=(GUI.snapshot,))
+GUI.run(key_esc, key_enter, key_next, key_prev, key_prtsc)

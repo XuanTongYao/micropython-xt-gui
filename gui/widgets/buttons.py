@@ -6,13 +6,13 @@ class XButton(XLayout):
     unable_to_enter = True  # 控件不可进入
 
     def __init__(
-        self, pos, wh=None, key_press=None, text="", color=WHITE, text_size=16
+        self, pos, wh=None, callback=None, text="", color=WHITE, text_size=16
     ) -> None:
         """按钮控件初始化
 
         Args:
             wh: 宽高，如果为None则根据text与text_size自动调整
-            key_press: 按下回调函数.
+            callback: 按下回调函数.
         """
         if wh is None:
             wh = (
@@ -20,8 +20,8 @@ class XButton(XLayout):
                 text_size + 6,
             )
         super().__init__(pos, wh, color, self._press)
-        self.xtext = XText((0, 0), text, self._color)
-        self.key_press = key_press
+        self.xtext = XText((0, 0), text, self._color)  # 显示的文字控件
+        self.callback = callback
         self.add_widget(self.xtext)
 
     def _calc_draw_area(self) -> tuple[tuple[int, int], tuple[int, int]]:
@@ -39,9 +39,9 @@ class XButton(XLayout):
         layout.rect(x + 1, y + 1, w - 2, h - 2, border_color)
 
     def _press(self, _) -> None:
-        if self.key_press is None:
+        if self.callback is None:
             return
-        self.key_press()
+        self.callback()
 
 
 class XRadio(XLayout):
@@ -60,10 +60,9 @@ class XRadio(XLayout):
 
         super().__init__(pos, wh, color, self._check)
         self.xtext = XText((0, 0), text, self._color)
-        self._checked = False
+        self._checked = False  # 被选中
         self._size = size
-        self._text_frame = None
-        self._group = None
+        self._group = None  # 组别(目前无用)
         self.add_widget(self.xtext)
 
     @property
@@ -76,7 +75,12 @@ class XRadio(XLayout):
             self._checked = val
             self._redraw_flag = True
 
-    def set_group(self, group: "list[XRadio]") -> None:
+    @property
+    def group(self):
+        return self._group
+
+    @group.setter
+    def group(self, group: "list[XRadio]"):
         self._group = group
         group.append(self)
 

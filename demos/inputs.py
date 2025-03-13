@@ -3,13 +3,8 @@ from gui import ufont
 from gui.utils.core import *
 from gui.key_handler import KeyHandler
 from gui.xt_gui import XT_GUI
-from gui.widgets.containers import XListView
+from gui.widgets.inputs import XSlider, XSpinBox
 from gui.widgets.buttons import XButton
-from gui.widgets.base import XLayout, XText
-from gui.widgets.displayers import XPlainTextView
-
-import os
-
 
 # 创建XT_GUI实例
 GUI = XT_GUI(
@@ -19,30 +14,20 @@ GUI = XT_GUI(
 )
 
 
-# 主界面
-GUI.add_widget(XText((0, 0), "eBook", BLUE))
-file_list = XListView((0, 16), (240, 224))
-GUI.add_widget(file_list)
+slide = XSlider((0, 0), (200, 30), 0, 100)
+spinbox = XSpinBox((0, 60), (65, 20), 0, 100, suffix="KG")
 
 
-# 打开文本
-def open_book(filename):
-    global textview, text
-    print("打开文件: " + filename)
-    GUI.add_layer(specified_layout=textview)
-    with open("./resource/books/" + filename, "r", encoding="UTF-8") as f:
-        textview.set_text(f.read())
+def echo():
+    print(f"Slide百分比:{slide.percent}")
+    print(f"SpinBox数据:{spinbox.value}")
 
 
-# 遍历books目录
-for book in os.listdir("./resource/books/"):
-    print(book)
-    func = lambda book=book: open_book(book)
-    file_list.add_widget(XButton((0, 0), (0, 16 + 6), func, text=book))
+show_button = XButton((0, 100), callback=echo, text="echo")
 
+# 添加控件
+GUI.add_widgets((slide, spinbox, show_button))
 
-# 文本显示区
-textview = XPlainTextView((0, 0), (240, 240))
 
 key_esc = KeyHandler(setup_hardware.BTN_ESCAPE, press=(GUI.key_response, KEY_ESCAPE))
 key_enter = KeyHandler(setup_hardware.BTN_ENTER, press=(GUI.key_response, KEY_MOUSE0))

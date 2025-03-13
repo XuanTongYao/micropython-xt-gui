@@ -24,8 +24,8 @@ class XWidget:
         self._pos = pos
         self._wh = wh
         self._color = color
-        self._parent: XLayout = None  # type: ignore
-        self._redraw_flag: bool = True
+        self._parent: XLayout = None  # type: ignore # 父控件
+        self._redraw_flag: bool = True  # 重绘标记
 
     # 公共方法
     def set_parent(self, parent: "XLayout"):
@@ -139,9 +139,8 @@ class XCtrl(XWidget):
         super().__init__(pos, wh, color)
         # 光标或焦点是否到达此控件
         # TODO 进入之后是否应该清除焦点？XFrameLayout会自己清除。其他类是否应该由父控件清除？
-        self._focused: bool = False
-        # 是否进入到控件
-        self._enter: bool = False
+        self._focused: bool = False  # 焦点是否位于该控件
+        self._enter: bool = False  # 是否进入到控件
         self._key_input = key_input
 
     @property
@@ -166,13 +165,10 @@ class XLayout(XCtrl):
 
     def __init__(self, pos, wh, color=WHITE, key_input=None):
         super().__init__(pos, wh, color, key_input)
-        # 子控件列表
-        self._childen: list[XWidget] = []
-        self._cleared = True
-        # 容器宽高
-        self._layout_wh: tuple[int, int] = (0, 0)
-        # 容器相对坐标
-        self._layout_pos = (0, 0)
+        self._children: list[XWidget] = []  # 子控件列表
+        self._cleared = True  # 已擦除标志
+        self._layout_wh: tuple[int, int] = (0, 0)  # 容器宽高
+        self._layout_pos = (0, 0)  # 容器相对坐标
 
     # 公共方法
     def set_parent(self, parent: "XLayout"):
@@ -192,13 +188,19 @@ class XLayout(XCtrl):
         self._add_widget(widget)
         self._adjust_layout()
 
+    def add_widgets(self, widgets: list[XWidget] | tuple[XWidget, ...]):
+        """添加多个子控件并调整布局(必须实现这个参数的版本,避免多余调整布局的性能问题)"""
+        for widget in widgets:
+            self._add_widget(widget)
+        self._adjust_layout()
+
     def remove_widget(self, widget: XWidget):
         """移除子控件并调整布局(必须实现这个参数的版本)"""
-        if widget in self._childen:
-            self._childen.pop(self._childen.index(widget))
+        if widget in self._children:
+            self._children.pop(self._children.index(widget))
             widget.set_parent(None)  # type: ignore
-            self._adjust_layout()
             self.clear()
+            self._adjust_layout()
 
     # 事件触发器
     def _transfer_event_trigger(self):
@@ -208,12 +210,13 @@ class XLayout(XCtrl):
 
     def _rebuild_draw_area_event_trigger(self):
         """重建容器绘制区域事件触发器"""
-        for child in self._childen:
+        for child in self._children:
             child._event_receiver(REBUILD_DRAW_AREA_EVENT)
+        self._adjust_layout()
 
     def _clear_draw_area_event_trigger(self):
         """擦除容器绘制区域事件触发器"""
-        for child in self._childen:
+        for child in self._children:
             child._event_receiver(CLEAR_DRAW_AREA_EVENT)
 
     # 事件处理器
@@ -225,12 +228,12 @@ class XLayout(XCtrl):
     def _rebuild_draw_area_event_handler(self):
         super()._rebuild_draw_area_event_handler()
         self._rebuild_draw_area()
-        for child in self._childen:
+        for child in self._children:
             child._event_receiver(REBUILD_DRAW_AREA_EVENT)
 
     def _clear_draw_area_event_handler(self):
         super()._clear_draw_area_event_handler()
-        for child in self._childen:
+        for child in self._children:
             child._event_receiver(CLEAR_DRAW_AREA_EVENT)
 
     # 绘制相关
@@ -284,6 +287,7 @@ class XLayout(XCtrl):
         display = GuiSingle.GUI_SINGLE.display
         if isinstance(display, DisplayAPI):
             x, y = self.get_absolute_pos()
+            # 容器绘制区域(容器区域)
             self._draw_area = display.framebuf_slice(x + x_offset, y + y_offset, w, h)
             self._rebuild_draw_area_event_trigger()
         else:
@@ -295,7 +299,7 @@ class XLayout(XCtrl):
 
     def _add_widget(self, widget: XWidget):
         """添加控件"""
-        self._childen.append(widget)
+        self._children.append(widget)
         widget.set_parent(self)
 
     def _draw(self):
@@ -311,7 +315,7 @@ class XLayout(XCtrl):
 
         self._cleared = False
         x_max, y_max = self._layout_wh
-        for child in self._childen:
+        for child in self._children:
             # 超出容器不绘制
             x, y = child._pos
             if x >= x_max or y >= y_max:
@@ -343,10 +347,10 @@ class XFrameLayout(XLayout):
         """
         super().__init__(pos, wh, color, self._key_response)
         # 焦点控件
-        self._focus_list: list[XCtrl] = []
-        self._focus_index = 0
-        self._loop_focus = loop_focus
-        self._frame = frame
+        self._focus_list: list[XCtrl] = []  # 焦点列表
+        self._focus_index = 0  # 当前焦点
+        self._loop_focus = loop_focus  # 允许循环切换焦点
+        self._frame = frame  # 有边框
 
     def _calc_draw_area(self) -> tuple[tuple[int, int], tuple[int, int]]:
         w, h = self._wh
@@ -428,19 +432,25 @@ class XText(XWidget):
 
     def __init__(self, pos, context: str, color=WHITE, autowrap=True, font_size=None):
         super().__init__(pos, (0, 0), color)
-        self._context = context
-        self._autowrap = autowrap
+        self._context = context  # 内容
+        self._autowrap = autowrap  # 是否自动换行
+        # 字体大小（目前无用）
         self._font_size = font_size if font_size is not None else GuiSingle.GUI_SINGLE.font.font_size  # type: ignore
-        self._lines_index: list[int] = []
+        self._lines_index: list[int] = []  # 文本预处理结果(每行起始位置在内容中的索引)
         # 多行滚动条位置，起始为0，向下为正，建议只在翻页容器使用
         self._scrollbar_pos = 0
 
-    # 公共方法
-    def set_context(self, context: str):
+    @property
+    def context(self):
+        return self._context
+
+    @context.setter
+    def context(self, context: str):
         self._context = context
         self._text_pre_processing()
         self._redraw_flag = True
 
+    # 公共方法
     def set_parent(self, parent: XLayout):
         super().set_parent(parent)
         self._text_pre_processing()

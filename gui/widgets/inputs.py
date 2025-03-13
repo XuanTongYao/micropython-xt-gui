@@ -128,6 +128,7 @@ class XSlider(XCtrl):
 
 
 class XSpinBox(XLayout):
+    "整数选择框"
 
     ARRAY_WITHD = const(12)
     HALF_ARRAY = const(ARRAY_WITHD // 2)
@@ -166,12 +167,12 @@ class XSpinBox(XLayout):
         elif KEY_ID == KEY_RIGHT or KEY_ID == KEY_DOWN:
             if self._value != self._range[0]:
                 self._value -= 1
-                self.xtext.set_context(self._prefix + str(self._value) + self._suffix)
+                self.xtext.context = self._prefix + str(self._value) + self._suffix
                 self.clear()
         elif KEY_ID == KEY_LEFT or KEY_ID == KEY_UP:
             if self._value != self._range[1]:
                 self._value += 1
-                self.xtext.set_context(self._prefix + str(self._value) + self._suffix)
+                self.xtext.context = self._prefix + str(self._value) + self._suffix
                 self.clear()
 
     def _calc_draw_area(self) -> tuple[tuple[int, int], tuple[int, int]]:
@@ -237,7 +238,7 @@ class XSpinBox(XLayout):
         min_val, max_val = self._range
         if min_val <= val <= max_val:
             self._value = val
-            self.xtext.set_context(self._prefix + str(self._value) + self._suffix)
+            self.xtext.context = self._prefix + str(self._value) + self._suffix
             self.clear()
 
     @property
@@ -248,7 +249,7 @@ class XSpinBox(XLayout):
     def suffix(self, suffix: str):
         if self._suffix != suffix:
             self._suffix = suffix
-            self.xtext.set_context(self._prefix + str(self._value) + self._suffix)
+            self.xtext.context = self._prefix + str(self._value) + self._suffix
             self.clear()
 
     @property
@@ -259,7 +260,7 @@ class XSpinBox(XLayout):
     def set_prefix(self, prefix: str):
         if self._prefix != prefix:
             self._prefix = prefix
-            self.xtext.set_context(self._prefix + str(self._value) + self._suffix)
+            self.xtext.context = self._prefix + str(self._value) + self._suffix
             self.clear()
 
     def set_range(self, range: tuple[int, int]):

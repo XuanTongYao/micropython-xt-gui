@@ -17,20 +17,16 @@ def print_hello():
     print("Hello world!")
 
 
-hello_button = XButton((0, 0), text="你好", key_press=print_hello)
+hello_button = XButton((0, 0), text="你好", callback=print_hello)
 hello_checkbox = XCheckbox((38, 0), (49, 16), 16, text="你好")
 hello_radio = XRadio((87, 0), (49, 16), 16, text="你好")
 
 # 添加控件
-for widget in [hello_button, hello_checkbox, hello_radio]:
-    GUI.add_widget(widget)
+GUI.add_widgets((hello_button, hello_checkbox, hello_radio))
 
 
-key_esc = KeyHandler(setup_hardware.BTN_ESCAPE)
-key_esc.set_press_func(GUI.key_response, KEY_ESCAPE)
-key_enter = KeyHandler(setup_hardware.BTN_ENTER)
-key_enter.set_press_func(GUI.key_response, KEY_MOUSE0)
-key_next = KeyHandler(setup_hardware.BTN_DOWN)
-key_next.set_press_func(GUI.key_response, KEY_DOWN)
+key_esc = KeyHandler(setup_hardware.BTN_ESCAPE, press=(GUI.key_response, KEY_ESCAPE))
+key_enter = KeyHandler(setup_hardware.BTN_ENTER, press=(GUI.key_response, KEY_MOUSE0))
+key_next = KeyHandler(setup_hardware.BTN_DOWN, press=(GUI.key_response, KEY_DOWN))
 
 GUI.run(key_esc, key_enter, key_next)

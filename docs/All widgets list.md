@@ -38,11 +38,23 @@
 
 各种按钮。
 
+| 类                                         | 描述   |
+| ------------------------------------------ | ------ |
+| [XButton](./advanced_widgets/Buttons.md)   | 按钮   |
+| [XRadio](./advanced_widgets/Buttons.md)    | 单选框 |
+| [XCheckbox](./advanced_widgets/Buttons.md) | 复选框 |
+
 ### 容器控件
 
 [源代码](/gui/widgets/containers.py)
 
 允许包含多个子控件，具有布局和焦点控制的容器控件。
+
+| 类                                            | 描述               |
+| --------------------------------------------- | ------------------ |
+| [XListView](./advanced_widgets/Containers.md) | 列表视图           |
+| [XVHBox](./advanced_widgets/Containers.md)    | 垂直/水平盒子视图  |
+| [XGridBox](./advanced_widgets/Containers.md)  | 网格盒子视图 |
 
 ### 显示控件
 
@@ -50,12 +62,25 @@
 
 用于显示某样东西的控件，可能具有控制的功能。
 
+| 类                                                 | 描述             |
+| -------------------------------------------------- | ---------------- |
+| [XPlainTextView](./advanced_widgets/Displayers.md) | 多页翻页显示文本 |
+
 ### 输入控件
 
 [源代码](/gui/widgets/inputs.py)
+
+| 类                                       | 描述       |
+| ---------------------------------------- | ---------- |
+| [XSlider](./advanced_widgets/Inputs.md)  | 滑块滑动条 |
+| [XSpinBox](./advanced_widgets/Inputs.md) | 整数选择框 |
 
 ## 特殊控件
 
 ### 图像控件
 
 [源代码](/gui/widgets/image.py)
+
+| 类                                | 描述   |
+| --------------------------------- | ------ |
+| [XImage](./basic_widgets/Base.md) | 2D图像 |
